@@ -1,0 +1,330 @@
+﻿Running MPAS-Ocean on Perlmutter and Frontier
+
+
+* On Perlmutter
+* On Frontier (not updated yet)
+
+
+* MPAS-Ocean intro page: https://mpas-dev.github.io/ocean/ocean.html
+* MPAS-Ocean V6.0 manual: mpas_ocean_users_guide_V6_2018-05-15.pdf
+
+
+by Hyun Kang
+Mar 2026
+
+
+* Running MPAS-Ocean on Perlmutter
+
+
+1. Access to Perlmutter & move to your scratch directory (/pscratch/sd/…)
+
+
+2. Download MPAS-Ocean code
+git clone https://github.com/E3SM-Project/E3SM.git
+git submodule update --init --recursive
+	
+
+3. Load required modules
+source /global/cfs/projectdirs/e3sm/hgkang/data_for_other/Dali/load_module_for_mpaso_gnu.sh
+	
+
+4. MPAS-Ocean installation
+cd E3SM/component/mpas-ocean
+make clean
+make gnu-cray CORE=ocean USE_PIO2=true OPENMP=false
+# This will take several minutes. You will see the 'ocean_model' executable once it is successfully compiled.
+	
+
+5. Test run (Global realistic ocean simulation on a quasi-uniform 240 km resolution)
+# Copy a test directory to your scratch directory
+cp -rf /global/cfs/projectdirs/e3sm/hgkang/data_for_other/Dali/test_global_QU240  /pscratch/sd/a/...
+cd /path/to/your_scratch_directory/test_global_QU240
+
+# Link your executables
+ln -s /path/to/your/E3SM/component/mpas-ocean/ocean_model ./
+# Run a CPU job (Use 1 node - 16 cores)
+sbatch job_cpu.sh
+# Check submitted job
+squeue -u your_id
+
+# Once the job is done, you will see 'log.ocean.0000.out'. It contains timing information of the run.
+# 'output.nc' is the result output file.
+        
+# Result display (optional)
+# -- Loading climate-utils to use NCL (NCAR Command Language)
+> module load climate-utils
+
+# Run a NCL script to display the surface kinetic energy field at day 10
+> ncl mpas_display.ncl
+> display mpas_00.png
+
+	
+
+
+
+Simulation controls
+
+
+* Simulation duration
+   * Standalone MPAS
+      * Go to the simulation directory (test_global_*)
+      * Open ‘namelist.ocean’
+      * Change the variable ‘config_run_duration’
+         * '0030_00:00:00' → 30 days
+         * '0100_00:00:00' → 100 days
+________________
+   * Running MPAS-Ocean on Frontier (not updated yet)
+
+
+   1. Access to Frontier & move to your scratch directory (/lustre/orion/[your_project]/scratch/[your_id])
+
+
+   2. Download MPAS-Ocean code
+>git clone https://github.com/E3SM-Project/E3SM.git
+>cd E3SM
+>git checkout hkang/ocean/gpu-fix
+>git submodule update --init --recursive
+
+
+   3. Load required modules
+>cp /lustre/orion/cli115/world-shared/hgkang/data4others/Alex/load_modules_frontier_crayclang.sh ./
+>source ./load_modules_frontier_crayclang.sh
+
+
+   4. MPAS-Ocean installation & test run (without GPU)
+>cd E3SM/component/mpas-ocean
+>make clean
+>make cray-cray CORE=ocean USE_PIO2=true OPENMP=false
+# This will take several minutes. You will see ‘ocean_model’ executable once it is successfully compiled.
+        # Keep the executable before cleaning the installation
+        >mv ocean_model ocean_model_cpu
+
+
+   5. MPAS-Ocean installation & test run (with GPU)
+        >make clean CORE=ocean
+        >make cray-cray CORE=ocean USE_PIO2=true OPENACC=true OPENMP=false
+# This will take several minutes (longer than the CPU version). You will see ‘ocean_model’ executable once it is successfully compiled.
+# To produce logging files for all cores, add LOGALL=true to the make command
+
+
+   6. Test run (Global realistic ocean simulation on a quasi-uniform 240 km resolution)
+         # Copy a test directory to your scratch directory
+        >cp -rf /lustre/orion/cli115/world-shared/hgkang/data4others/Alex/test_global_QU240 
+                       /your_scratch_directory/…
+        >cd your_scratch_directory/test_global_QU240
+        
+        # Edit Slurm job scripts - Make sure to change ‘account’ if your project id is now ‘cli115’.
+        >vi job_cpu.sh
+                # Go to line 3 and change the account to your project id
+                # Do the same for ‘job_gpu.sh’
+
+
+        # Link your executables
+        >ln -s E3SM/component/mpas-ocean/ocean_model ./
+        >ln -s E3SM/component/mpas-ocean/ocean_model_cpu ./
+
+
+# Run a GPU job first (Use 1 GPU 1CPU)
+        >sbatch job_gpu.sh
+        
+        # Check submitted job
+        >squeue -u your_id
+
+
+        # Once the job is done, you will see ‘log.ocean.0000.out’. It contains timing information of the run.
+        # Change log information of the GPU run to prevent being overlapped by next run
+        >mv log.ocean.0000.out log_gpu
+
+
+        # Run a CPU job (Use 1 CPU)
+        >sbatch job_cpu.sh
+
+
+        # You can compare the GPU timer result with CPU. For now, the GPU run is not much faster than the 
+CPU run because some parts are not implemented on GPUs. We will oversubscribe GPU (e.g., 3 CPU 
+cores share 1 GPU) to further accelerate our simulations.
+
+
+
+
+
+
+________________
+
+
+Running E3SM G-case (ocean-sea ice coupled) simulation on Perlmutter
+
+
+by Hyun Kang
+May 2024
+
+
+   1. Access to Frontier & move to your scratch directory (/lustre/orion/[your_project]/scratch/[your_id])
+
+
+   2. Download E3SM code (The code is updated, so please remove the old version and download again.)
+>git clone https://github.com/E3SM-Project/E3SM.git
+>cd E3SM
+>git checkout hkang/ocean/gpu-fix
+>git submodule update --init --recursive
+
+
+   3. Run G-case by using a E3SMv3 run script
+ 
+3.1. Copy the run script
+>cd /your/scratch/directory
+>mkdir e3sm_scripts
+>cp 
+/global/cfs/projectdirs/e3sm/hgkang/data_for_other/Alex/run_e3sm.v3.GMPAS-IAF_EC30to60E2r2.sh ./e3sm_scripts
+>cd e3sm_scripts
+
+
+3.2. Edit the run script
+# Change the account to yours at line 18
+# Change E3SM code root
+# Go to line 44, and change the path to your E3SM code path
+# Change E3SM case root
+# Go to line 45, and change the path to your scratch directory
+# You can customize #Cores at line 189
+        # 4 NVIDIA A100 GPUs per node
+        # If you want to use cores more than 32, increase it by a multiple of 2.
+        # If you want to use cores more than 32, change QUEUE at line 19 to “regular”
+        # If you increase MAX_MPITASKS_PER_NODE at line 187, GPU starts to oversubscribe CPU 
+   cores. Please increase it by a multiple of 2 (max. is 64, but 16 shows the best performance.)
+
+
+3.3. Run the script
+./run_e3sm.v3.GMPAS-IAF_EC30to60E2r2.sh
+        #The script will set up, build, and run the model (submit a job). It will take ~20 min unless your 
+              job is waiting in the queue. The model is integrated for a day.
+# Check job status
+squeue -u  your_id
+
+
+3.4. Check timing results
+# Once your job is done, you can check timing results.
+cd /your/E3SM/run/directory/tests/M_0x1_ndays/case_scripts/timing
+
+
+# Run directory is located here:
+cd /your/E3SM/run/directory/tests/M_0x1_ndays/run
+
+
+________________
+
+
+Running E3SM G-case (ocean-sea ice coupled) simulation on Frontier
+
+
+by Hyun Kang
+May 2024
+
+
+
+
+   * Access to Frontier & move to your scratch directory (/lustre/orion/[your_project]/scratch/[your_id])
+
+
+   * Download E3SM code (The code is updated, so please remove the old version and download again.)
+>git clone https://github.com/E3SM-Project/E3SM.git
+>cd E3SM
+>git checkout hkang/ocean/gpu-fix
+>git submodule update --init --recursive
+
+
+   * Run G-case by using a E3SMv3 run script
+ 
+3.1. Copy the run script
+>cd /your/scratch/directory
+>mkdir e3sm_scripts
+>cp 
+/lustre/orion/cli115/world-shared/hgkang/data4others/Alex/run_e3sm.v3.GMPAS-IAF_EC30to60E2r2.sh ./e3sm_scripts
+>cd e3sm_scripts
+
+
+3.2. Edit the run script
+# Change the account to yours at line 18
+# Change E3SM code root
+# Go to line 44, and change the path to your E3SM code path
+# Change E3SM case root
+# Go to line 45, and change the path to your scratch directory
+# You can customize #Cores at line 189
+        # 8 AMD MX250 GPUs per node
+        # If you want to use cores more than 32, increase it by a multiple of 2.
+        # If you want to use cores more than 32, change QUEUE at line 19 to “regular”
+        # If you increase MAX_MPITASKS_PER_NODE at line 187, GPU starts to oversubscribe CPU 
+   cores. Please increase it by a multiple of 2 (max. is 56, but 16 shows the best performance.)
+
+
+3.3. Run the script
+./run_e3sm.v3.GMPAS-IAF_EC30to60E2r2.sh
+        #The script will set up, build, and run the model (submit a job). It will take ~20 min unless your 
+              job is waiting in the queue.The model is integrated for a day.
+# Check job status
+squeue -u  your_id
+
+
+3.4. Check timing results
+# Once your job is done, you can check timing results.
+cd /your/E3SM/run/directory/tests/M_0x1_ndays/case_scripts/timing
+
+
+# Run directory is located here:
+cd /your/E3SM/run/directory/tests/M_0x1_ndays/run
+
+
+________________
+
+
+Simulation controls
+
+
+
+
+   * Simulation duration
+   * Standalone MPAS
+   * Go to the simulation directory (test_global_*)
+   * Open ‘namelist.ocean’
+   * Change the variable ‘config_run_duration’
+   * '0030_00:00:00' → 30 days
+   * '0100_00:00:00' → 100 days
+   * G-case (ocean-seaice coupled)
+   * Open E3SM run script (run_e3sm.v3.GMPAS-IAF_EC30to60E2r2.sh)
+   * Go to line 51
+   * readonly run='M_0x1_ndays'
+   * M: Processor layout size (for now, no need to care)
+   * 0: Restart number
+   * 1: Duration (change this number to increase duration)
+   * ndays: Unit of duration
+   * Ex) M_0x2_ndays, M_0x2_nmonths, M_0x1_nyears
+
+
+
+
+   * Generate the graph partition file to change the processor layout
+   * Standalone MPAS-O : Using ‘METIS’ tool
+   * Frontier
+   * Go to the simulation directory (test_global_*)
+   * Create a graph partition file 
+   * /lustre/orion/cli115/world-shared/hgkang/programs/metis/bin/gpmetis grap.info [number of cores]
+   * Ex) /lustre/orion/cli115/world-shared/hgkang/programs/metis/bin/gpmetis graph.info 32
+   * Change job script file for CPU run
+   * Open job script files for CPU run (job_cpu.sh)
+   * At line 4, change the number of nodes
+   * #Nodes = ceiling(#Cores / 56) (round-up integer)
+   * At line 12, change #Cores
+   * srun -n #Cores ./ocean_model_cpu
+   * Change job script file for GPU run
+   * Open job script files for GPU run (job_gpu.sh)
+   * At line 4, change the number of nodes
+   * #Nodes = ceiling(#Cores / 56) (round-up integer)
+   * To oversubscribe GPU, (i.e., #MPI Tasks per GPU is larger than 1), change ‘ntasks-per-node’ with a multiple of 8
+   * At line 14, change #Cores
+   * #Cores = ntasks-per-node * #Nodes
+   * srun -n #Cores ./ocean_model
+
+
+   * Perlmutter
+   * Use this directory for ‘gpmetis’ executable
+   * /global/common/cori/software/metis_cle5.2/5.1.0/hsw/gnu/bin/gpmetis
+   * Creating a graph partition file, changing job scripts are very similar to Frontier except the number of CPU per node = 64 and the number of GPU per node = 4 on Perlmutter.
