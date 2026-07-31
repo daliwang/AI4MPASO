@@ -1,0 +1,77 @@
+netcdf nyf.ncep.T62.050923 {
+dimensions:
+	lat = 94 ;
+	lon = 192 ;
+	time = UNLIMITED ; // (1460 currently)
+variables:
+	float lat(lat) ;
+		lat:long_name = "latitude" ;
+		lat:units = "degrees_north" ;
+	float lon(lon) ;
+		lon:long_name = "longitude" ;
+		lon:units = "degrees_east" ;
+	double area(lat, lon) ;
+		area:long_name = "area of grid cell" ;
+		area:units = "radian2" ;
+	int mask(lat, lon) ;
+		mask:long_name = "domain mask" ;
+		mask:comment = "unitless, 0 <=> grid cell not in model domain" ;
+	double frac(lat, lon) ;
+		frac:long_name = "fraction of grid cell that is active" ;
+		frac:comment = "unitless, range = [0,1]" ;
+	double time(time) ;
+		time:long_name = "observation time" ;
+		time:units = "days since 0001-01-01 00:00:00" ;
+		time:calendar = "noleap" ;
+	float dn10(time, lat, lon) ;
+		dn10:long_name = "Air Density" ;
+		dn10:units = "kg/m3" ;
+		dn10:level = "10m computed" ;
+		dn10:sampling_time = "fcst-6" ;
+		dn10:comment = "ensemble average of 1958-2000 NCEP time series" ;
+	float q_10(time, lat, lon) ;
+		q_10:long_name = "Specific Humidity" ;
+		q_10:units = "kg/kg" ;
+		q_10:level = "10m shifted" ;
+		q_10:sampling_time = "fcst-6" ;
+		q_10:comment = "FFT of 1958-2000 NCEP time series" ;
+		q_10:code = "/home/blackforest/yeager/DAVE/NCEPNY/fft_transform_2D_q10_bmethod.run" ;
+		q_10:method = "uncorrected; no b-factor added" ;
+	float slp_(time, lat, lon) ;
+		slp_:long_name = "Sea Level Pressure" ;
+		slp_:units = "Pa" ;
+		slp_:level = " 0m shifted" ;
+		slp_:sampling_time = "fcst-6" ;
+		slp_:comment = "ensemble average of 1958-2000 NCEP time series" ;
+	float t_10(time, lat, lon) ;
+		t_10:long_name = "Air Temperature" ;
+		t_10:units = "Kelvin" ;
+		t_10:level = "10m shifted" ;
+		t_10:sampling_time = "fcst-6" ;
+		t_10:comment = "FFT of 1958-2000 NCEP time series" ;
+		t_10:code = "/home/blackforest/yeager/DAVE/NCEPNY/fft_transform_2D_t10_bmethod.run" ;
+		t_10:method = "uncorrected; no b-factor added" ;
+	float u_10(time, lat, lon) ;
+		u_10:long_name = "U Wind" ;
+		u_10:units = "m/s" ;
+		u_10:level = "10m extracted" ;
+		u_10:sampling_time = "fcst-6" ;
+		u_10:comment = "FFT of 1958-2000 NCEP time series" ;
+		u_10:code = "/home/blackforest/yeager/DAVE/NCEPNY/fft_transform_2D_uv.run" ;
+		u_10:method = "uncorrected" ;
+	float v_10(time, lat, lon) ;
+		v_10:long_name = "V Wind" ;
+		v_10:units = "m/s" ;
+		v_10:level = "10m extracted" ;
+		v_10:sampling_time = "fcst-6" ;
+		v_10:comment = "FFT of 1958-2000 NCEP time series" ;
+		v_10:code = "/home/blackforest/yeager/DAVE/NCEPNY/fft_transform_2D_uv.run" ;
+		v_10:method = "uncorrected" ;
+
+// global attributes:
+		:title = "NCEP Normal Year Forcing, 6 hour data" ;
+		:source = "NCEP 1958-2000 data" ;
+		:comment = "Normal Year Forcing, assigned to year=1" ;
+		:history = "Original data by yeager, reformatted by kauff,2005-09-22 10:50:17" ;
+		:Conventions = "CF-1.0" ;
+}

@@ -1,2 +1,12 @@
 # Exclude GraphCast source/vendor tree
 graphcast/
+
+# Large binary sample / archive data (keep docs, headers, namelists, selections)
+data/**/*.nc
+data/**/*.nc4
+data/**/*.tar
+data/**/*.tar.gz
+data/**/*.tgz
+data/QU240_Restart_Hist_601-605/
+data/hgkang/
+data/mpaso_data.tar.gz

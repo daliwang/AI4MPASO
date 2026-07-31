@@ -1,0 +1,31 @@
+&datm_nml
+  decomp = "1d"
+  factorfn = "/global/cfs/cdirs/e3sm/inputdata/atm/datm7/CORE2/COREv2.correction_factors.T62.121007.nc"
+  force_prognostic_true = .false.
+  iradsw = 1
+  presaero = .true.
+  restfilm = "undefined"
+  restfils = "undefined"
+  wiso_datm = .false.
+/
+&shr_strdata_nml
+  datamode = "CORE2_NYF"
+  domainfile = "/global/cfs/cdirs/e3sm/inputdata/share/domains/domain.lnd.T62_oQU240.240513.nc"
+  dtlimit = 1.5, 1.5, 1.5, 1.5
+  fillalgo = "nn", "nn", "nn", "nn"
+  fillmask = "nomask", "nomask", "nomask", "nomask"
+  fillread = "NOT_SET", "NOT_SET", "NOT_SET", "NOT_SET"
+  fillwrite = "NOT_SET", "NOT_SET", "NOT_SET", "NOT_SET"
+  mapalgo = "bilinear", "bilinear", "bilinear", "bilinear"
+  mapmask = "nomask", "nomask", "nomask", "nomask"
+  mapread = "NOT_SET", "NOT_SET", "NOT_SET", "NOT_SET"
+  mapwrite = "NOT_SET", "NOT_SET", "NOT_SET", "NOT_SET"
+  readmode = "single", "single", "single", "single"
+  streams = "datm.streams.txt.CORE2_NYF.GISS 1 1 1",
+      "datm.streams.txt.CORE2_NYF.GXGXS 1 1 1",
+      "datm.streams.txt.CORE2_NYF.NCEP 1 1 1",
+      "datm.streams.txt.presaero.clim_2000 1 1 1"
+  taxmode = "cycle", "cycle", "cycle", "cycle"
+  tintalgo = "linear", "linear", "linear", "linear"
+  vectors = "u:v"
+/
