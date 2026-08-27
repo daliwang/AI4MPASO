@@ -1,9 +1,11 @@
 # OceanAISpinup — Detailed Implementation Plan
 
 **Date:** 2026-08-27  
-**Status:** Schema-ready for a QU240 prototype; **not** yet training-ready  
-**Companion:** `OceanAISpinup_Development_Plan.md` (GraphCast / LandSim review)  
-**Data docs:** `data/docs/` (DATM, `mpaso_in`, restart deep-ocean selection)
+**Status:** **Schema locked.** Frontier archive has **60 monthly restarts at years 51–55 and 60 at years 601–605** (month-aligned 550-year pairs). Graph/loader unblocked. Track A can start on this pair set. **Not** diffusion-ready (still two 5-year windows, not a full 20–600 trajectory).  
+**Companion:** `OceanAISpinup_Development_Plan.md` (GraphCast / LandSim review; Phase 0 closed against this sample)  
+**Data docs:** `data/docs/` (DATM, `mpaso_in`, restart deep-ocean selection)  
+**Local sample:** `data/OceanSpin_sample/` (headers, namelists, stream XML)  
+**Frontier archive:** `/lustre/orion/cli115/world-shared/hgkang/data4others/Dali/` — see `data/docs/FRONTIER_QU240_ARCHIVE.md`
 
 This note answers three questions:
 
@@ -15,53 +17,102 @@ This note answers three questions:
 
 ## 1. Direct answer: is Kang’s data enough?
 
-**Enough to design the architecture, graph builder, IO contract, and a single-mesh prototype loader. Not enough to train a model that actually uses atmospheric forcing and physics parameters as causal inputs.**
+**Enough to lock names, dimensions, graph construction, DATM encoding, namelist tokens, deep-mask, OHC constants, and a single-mesh prototype loader. Not enough to train a model that uses atmospheric forcing and physics parameters as causal inputs, and not enough pairs to train diffusion.**
 
-| Question | What we have | Gap |
+| Question | What we have (this repo) | Remaining gap |
 |---|---|---|
-| Mesh topology | Full restart header: `nCells=7153`, `nEdges=22403`, `nVertices=15211`, `nVertLevels=60`, `maxEdges=6` | Need the mesh file (or restart) on disk for `cellsOnCell`, `cellsOnEdge`, `areaCell`, … |
-| Prognostic names | Restart header locks **actual** NetCDF names (see §2.2) | Selection docs still use some aliases (`layerThickness` vs `layerThickness`) — lock to the header |
-| Deep-ocean target | Alice/Hyun: 2000 m–bottom OHC is the slow spinup signal; `k = 46…60` | Need a script that computes deep OHC from restart and matches history `timeMonthly_avg_oceanHeatContent2000mToBot` |
-| Early vs late pairing | **Intended:** restart@~50 yr → restart@~600 yr | Sample only has **0661** and **0681** (20 years apart), plus one monthly history (`0678-11`) |
-| Atmosphere | CORE2 NYF streams documented; NCEP T62 6-hourly climatology (`time=1460`) | NYF **cycles the same year**. With one case, forcing is identical for every pair |
-| Physics configs | `mpaso_in` + `mpaso_variables` | Also **constant** for one case — cannot learn parameter sensitivity yet |
-| Training volume | Format samples + headers | Need the long-run restart archive (many years) and/or additional cases (params, meshes) |
+| Mesh topology | Restart header **and** Frontier `rst.0051-01-01` / `rst.0601-01-01`: `nCells=7153`, `nEdges=22403`, `nVertices=15211`, `nVertLevels=60`; incidence is in the restart. Standalone mesh: `…/601-605/mesh/ocean.QU.240km.151209.nc` | None for QU240 |
+| Prognostic names | Locked: `temperature`, `salinity`, `layerThickness`, `normalVelocity` (same on 0051 and 0601) | None for v1 |
+| Deep-ocean target | k = 46…60; ρ₀=1026, cₚ=3996; AM + monthly OHC files on Frontier | Script: restart OHC vs `oceanHeatContent2000mToBot` |
+| Early vs late pairing | **On Frontier:** 60 monthly rst years **51–55** and 60 monthly rst years **601–605**. Month-aligned **60 pairs with Δ = 550 yr**. Format samples 0661/0681 are extra, not this tree. | Continuous years 56–600 (or 20–50) if Hyun has them |
+| Atmosphere | CORE2 NYF; **already remapped to oQU240** (`ncol=7153`) under `remapped_datm/QU240-NYF/remapped/` | NYF still cycles — F does not differ across pairs |
+| Physics configs | `mpaso_in` + `mpaso_variables` with numeric values | One case — θ not identifiable |
+| Training volume | 60 long-horizon pairs + short-Δ pairs inside each 5-year window | More years for diffusion / generalization |
 
 **Implication for architecture:** on the current sample, atmosphere and namelist are **run-level metadata**, not per-example features. The mesh **is** the spatial operator and must be first-class. Forcing and parameters become informative only when the dataset spans **multiple physics settings, forcings, or meshes**.
 
-The rest of this plan is written so a QU240 MVP can start now, and so later multi-run data plugs in without changing the IO contract.
+The rest of this plan is written so a QU240 MVP can start now against one restart file, and so later multi-run data plugs in without changing the IO contract.
 
 ---
 
-## 2. What Kang’s sample actually is
+## 2. Local sample inventory (`data/OceanSpin_sample/`)
 
-### 2.1 Case
+Schema authority is this tree, copied from Hyun’s NERSC sample. Large NetCDF payloads are **not** versioned (`.gitignore`: `data/**/*.nc`). Headers, namelists, stream XML, and selection lists **are** versioned.
+
+### 2.1 Case identity (from restart/history global attributes)
 
 | Item | Value |
 |---|---|
 | Case | `v3.GMPAS-NYF_QU240` |
-| Ocean mesh | Quasi-uniform QU240 (~240 km), spherical MPAS C-grid |
-| Atmosphere | DATM `CORE2_NYF` (prescribed, cycled normal year) |
+| Username / host (sample files) | `hgkang` / `miller` |
+| MPAS git | `be7af980a1` |
+| Ocean mesh | Quasi-uniform QU240 (~240 km), spherical C-grid (`on_a_sphere=YES`, `sphere_radius=6371229`) |
+| Vertical | 60 levels, `config_init_vertical_grid_type = z-star` |
+| Atmosphere | DATM `CORE2_NYF` (prescribed, `taxmode=cycle`) |
 | Calendar | `noleap` |
-| Ocean `config_dt` | `01:00:00` |
-| Vertical | 60 z-star / ALE levels |
+| Ocean `config_dt` | `01:00:00` (barotropic `config_btr_dt = 0000_00:03:00`) |
+| Integrator | `split_explicit_ab2` |
+| Partition prefix (namelist) | `…/ocn/mpas-o/oQU240/partitions/mpas-o.graph.info.230422.part.` |
 | NERSC pointer | `/global/cfs/cdirs/m4259/hgkang/data_for_others/Dali_OceanSpinup_sample` |
 | Analysis | [MPAS-Analysis GMPAS-NYF_QU240](https://portal.nersc.gov/project/e3sm/hgkang/ImPACTS/AI_spinup/v3.GMPAS-NYF_QU240/www/) |
 
-### 2.2 Restart fields — **use header names, not aliases**
+### 2.2 Files in the local sample tree
 
-From `data/OceanSpin_sample/restart/mpas_ocean_header.txt`:
+**Versioned (in git)**
 
-| Role | NetCDF name (lock this) | Shape | Notes |
+| Path | Role |
+|---|---|
+| `restart/mpas_ocean_header.txt` | **Authoritative** restart names, dims, mesh connectivity, fill values |
+| `history/history_header.txt` | Monthly history names; OHC / SSH / MLD diagnostics |
+| `datm_NYF/ncep_header.txt` | NCEP T62 NYF 6-hourly fields (`time=1460`) |
+| `mpaso_in` | Full ocean namelist (physics values) |
+| `mpaso_variables` | Selected namelist tokens for AI conditioning |
+| `restart_variables` | Selected deep-ocean restart fields |
+| `datm_in` | DATM namelist (`CORE2_NYF`, bilinear, cycle) |
+| `datm.streams.txt.CORE2_NYF.NCEP` | NCEP stream: `u_10,v_10,t_10,slp_,q_10,dn10` |
+| `datm.streams.txt.CORE2_NYF.GXGXS` | Precip stream: `prc` → `prec` |
+| `datm.streams.txt.CORE2_NYF.GISS` | Radiation: `lwdn,swdn,swup` |
+| `datm.streams.txt.presaero.clim_2000` | Optional aerosol deposition |
+
+**Named in headers / docs, not in git (bring onto the machine to implement WP1)**
+
+| File | Time stamp | Role |
+|---|---|---|
+| `v3.GMPAS-NYF_QU240.mpaso.rst.0661-01-01_00000.nc` | 0661-01-01 | Format exemplar (late-run restart; **not** year ~50) |
+| `v3.GMPAS-NYF_QU240.mpaso.rst.0681-01-01_00000.nc` | 0681-01-01 | Format exemplar, +20 yr |
+| `v3.GMPAS-NYF_QU240.mpaso.hist.am.timeSeriesStatsMonthly.0678-11-01` | 0678-11 | One monthly history (OHC QC) |
+| `nyf.ncep.T62.050923.nc` | NYF year, 6-hourly | DATM winds / T / SLP / q / density |
+| `nyf.gxgxs.T62.051007.nc` | 12 months | DATM precip |
+| `nyf.giss.T62.051007.nc` | monthly | DATM radiation |
+| `domain.lnd.T62_oQU240.240513.nc` | static | T62 → oQU240 remap domain (`datm_in`) |
+
+Do **not** treat 0661 → 0681 as the scientific 50 yr → 600 yr pair. Those two files prove format and a 20-year residual.
+
+**Frontier payloads (Hyun, 2026-08):** `/lustre/orion/cli115/world-shared/hgkang/data4others/Dali/` — full inventory in `data/docs/FRONTIER_QU240_ARCHIVE.md`.
+
+| Window | Restart dir | Files | Dates |
+|---|---|---|---|
+| Early (~50 yr) | `QU240_Restart_Hist_051-055/restart/` | 60 × 57 MB | monthly, **0051-01 … 0055-12** |
+| Late (~600 yr) | `QU240_Restart_Hist_601-605/restart_files/` | 60 × 57 MB | monthly, **0601-01 … 0605-12** |
+
+Month-aligned map `0051-MM → 0601-MM` (and the four following years) is **60 pairs at Δ = 550 yr**. Schema matches the locked header (`xtime` checked on 0051-01-01 and 0601-01-01). DATM is already on cells: `remapped_datm/QU240-NYF/remapped/`.
+
+### 2.3 Restart fields — **use header names**
+
+From `restart/mpas_ocean_header.txt`. Fill value `9.96920996838687e+36`; T/S/h use `missing_value_mask = cellMask`; velocity uses `edgeMask`. Masks are **not** stored as arrays — derive from `minLevelCell` / `maxLevelCell`.
+
+| Role | NetCDF name | Shape | Notes |
 |---|---|---|---|
 | Potential temperature | `temperature` | `Time, nCells, nVertLevels` | °C |
 | Salinity | `salinity` | `Time, nCells, nVertLevels` | 1e-3 |
-| Layer thickness | `layerThickness` | `Time, nCells, nVertLevels` | m; **not** `layerThickness` |
-| Edge-normal velocity | `normalVelocity` | `Time, nEdges, nVertLevels` | m/s; **not** `normalVelocity` |
-| Column depth | `bottomDepth` | `nCells` | m |
+| Layer thickness | `layerThickness` | `Time, nCells, nVertLevels` | m |
+| Edge-normal velocity | `normalVelocity` | `Time, nEdges, nVertLevels` | m/s |
+| Barotropic velocity | `normalBarotropicVelocity` | `Time, nEdges` | split-explicit auxiliary; copy from template in v1 |
+| Column depth | `bottomDepth` | `nCells` | m, positive down |
 | Active levels | `minLevelCell`, `maxLevelCell` | `nCells` | 1-based indices |
 | Reference z | `refBottomDepth` | `nVertLevels` | m |
 | Resting thickness | `restingThickness` | `nCells, nVertLevels` | ALE reference |
+| Model time | `xtime` | `Time, StrLen` | `YYYY-MM-DD_HH:MM:SS` |
 
 Deep mask (this mesh):
 
@@ -69,33 +120,69 @@ Deep mask (this mesh):
 refBottomDepth[k] > 2000  and  k <= maxLevelCell[i]  and  bottomDepth[i] > 2000
 ```
 
-with **k = 46…60** (1-based). That is **15 deep levels**.
+with **k = 46…60** (1-based; 0-based 45…59). That is **15 deep levels**.  
+First deep level: `refBottomDepth[46] ≈ 2074.87 m`. Bottom: `refBottomDepth[60] ≈ 5499.99 m`.
 
-History validation (not a restart writeback field):
+**`ssh` is not a restart variable** in this header. History has `timeMonthly_avg_ssh`. Column thickness / SSH consistency for writeback goes through `layerThickness` (and MPAS’s own SSH reconstruction). Keep `normalBarotropicVelocity` and other time-stepper auxiliaries from the template restart.
 
-- `timeMonthly_avg_oceanHeatContent2000mToBot` (J per cell)
+### 2.4 History diagnostics (validation only — not writeback)
 
-`ssh` is **not** present as a standalone restart variable in this header; column thickness / SSH consistency must be handled via `layerThickness` (and MPAS’s own SSH reconstruction) if a full restart is written.
+From `history/history_header.txt` (`nOceanRegions=7`, same `nCells` / `nVertLevels`).
 
-### 2.3 Atmosphere (DATM), not coupler fluxes
+| History name | Use |
+|---|---|
+| `timeMonthly_avg_oceanHeatContent2000mToBot` | Primary deep-OHC target (J per cell) |
+| `timeMonthly_avg_oceanHeatContentSfcTo700m` | Shallow band (matches `Ocean_EQ.png`) |
+| `timeMonthly_avg_oceanHeatContent700mTo2000m` | Mid band |
+| `timeMonthly_avg_oceanHeatContentSfcToBot` | Full-column OHC |
+| `timeMonthly_avg_activeTracers_temperature` / `_salinity` | Monthly T/S (names differ from restart) |
+| `timeMonthly_avg_layerThickness` | Monthly thickness |
+| `timeMonthly_avg_ssh` | SSH (history only) |
+| `timeMonthly_avg_tThreshMLD` / `dThreshMLD` | Mixed-layer sanity |
+| `timeMonthly_avg_BruntVaisalaFreqTop` | Stratification QC |
 
-| Stream | Grid | Time | Variables to use |
-|---|---|---|---|
-| NCEP | T62, 94 × 192 | 6-hourly NYF (`time=1460`) | `u_10`, `v_10`, `t_10`, `slp_` (Tier-1); `q_10`, `dn10` (Tier-2) |
-| GXGXS | T62 | monthly climatology (12) | `prc` |
-| GISS | T62 | monthly | `swdn`, `swup`, `lwdn` |
+OHC from restart (must match the 2000 m–bottom history field after a global sum):
+
+\[
+\mathrm{OHC}_{2000}^{\mathrm{bot}}
+= \rho_0 c_p \sum_i \sum_{k\in\mathrm{deep}} T_{i,k}\, h_{i,k}\, A_i
+\]
+
+with \(\rho_0=1026\) (`config_density0`) and \(c_p=3996\) (`config_specific_heat_sea_water`).
 
 Do **not** train on history `windStress*`, `latentHeatFlux`, `rainFlux`, etc. Those depend on SST/ice.
 
+### 2.5 Atmosphere (DATM), not coupler fluxes
+
+| Stream | File | Grid | Time | Variables |
+|---|---|---|---|---|
+| NCEP | `nyf.ncep.T62.050923.nc` | T62, 94 × 192 | 6-hourly NYF (`time=1460` = 365×4) | Tier-1: `u_10`, `v_10`, `t_10`, `slp_`; Tier-2: `q_10`, `dn10` |
+| GXGXS | `nyf.gxgxs.T62.051007.nc` | T62 | monthly climatology (12) | `prc` |
+| GISS | `nyf.giss.T62.051007.nc` | T62 | monthly | `swdn`, `swup`, `lwdn` |
+
+DATM remap: `mapalgo=bilinear`, `vectors=u:v`, domain `domain.lnd.T62_oQU240.240513.nc`.
+
 Because NYF **cycles**, a 50-year and a 600-year restart see the **same annual forcing**. The ocean still changes because of **slow internal adjustment**. Forcing still belongs in the model as a **condition** (the map is “under this repeating climate”), but it will not differentiate samples until we have IAF, different NYF products, or flux perturbations.
 
-### 2.4 Physics parameters
+### 2.6 Physics parameters (locked values, one case)
 
-`mpaso_variables` / `selected_variables.txt` are **namelist scalars/flags** (GM/Redi κ, visc, KPP, drag, EOS, …). Encode as a global token vector (float / log-float / boolean / categorical). With one `mpaso_in`, store once as run metadata.
+From `mpaso_variables` / `mpaso_in`. Encode as a global token vector. With one `mpaso_in`, store once as run metadata.
 
-### 2.5 Mesh is the major difference
+| Group | Locked values |
+|---|---|
+| Momentum visc | `mom_del2=4000` (on), `mom_del4=2e14` (on) |
+| Redi / GM | both `constant`, κ=`900` |
+| Submesoscale | enabled; `ce=0.08`, `tau=172800` |
+| CVMix | KPP + convection + shear on; background visc `1e-4` |
+| Bulk coupling | wind stress + thickness flux on; precip scale `1.0` |
+| Numerics | tracer adv order 3; monotonic flux/remap; flux-form vertical |
+| Drag | implicit constant, coeff `1e-3` |
+| EOS / PGF | `jm` / `Jacobian_from_TS` |
+| S restoring | piston `1.585e-6`, max ΔS `0.5`, off under ice |
 
-LandSim treats each land cell as IID. GraphCast uses a **separate** icosahedral mesh and keeps loss on lat–lon. MPAS-Ocean **already is** the unstructured C-grid:
+### 2.7 Mesh is the major difference
+
+LandSim treats each land cell as IID. GraphCast uses a **separate** icosahedral mesh and keeps loss on lat–lon. MPAS-Ocean **already is** the unstructured C-grid. Connectivity lives **in the same restart file** as the state.
 
 | Entity | Count (QU240) | Carries |
 |---|---|---|
@@ -103,10 +190,10 @@ LandSim treats each land cell as IID. GraphCast uses a **separate** icosahedral 
 | Edges | 22403 | `normalVelocity`, `dcEdge`, `dvEdge`, `fEdge` |
 | Vertices (dual triangles) | 15211 | optional vorticity / reconstruction |
 
-Connectivity that **must** become the graph (from the same restart/mesh file):
+Connectivity that **must** become the graph (from the restart):
 
 - `cellsOnCell`, `nEdgesOnCell`, `edgesOnCell`, `cellsOnEdge`
-- `areaCell`, `dcEdge`, `dvEdge`, `angleEdge`, `latCell`, `lonCell`, `fCell` / `fEdge`
+- `areaCell`, `dcEdge`, `dvEdge`, `angleEdge`, `latCell`, `lonCell`, `xCell,yCell,zCell`, `fCell` / `fEdge`
 - land/valid masks via `maxLevelCell` / fill values
 
 QU240 is small enough that a **full-graph GNN** (or even dense attention over 7k cells) is feasible. EC30to60-class meshes will require sparse / multi-scale operators later; do not design the v1 stack around lat–lon patches or ViT on interpolated maps.
@@ -137,7 +224,7 @@ x_{t+\Delta} \sim p\big(x_{t+\Delta} \,\big|\, x_t,\, F,\, \theta,\, G\big)
 
 on the deep mask only. Persistence (\(x_{t+\Delta}=x_t\)) is the first baseline; the network should beat it on deep T and on OHC 2000 m–bottom.
 
-This is **not** GraphCast’s 6-hour rollout. Δ can be 20 yr (sample), 50 yr, or ~550 yr (intended). The model is a **spinup operator**, closer to LandSim’s early→eq map, but with spatial coupling on \(G\).
+This is **not** GraphCast’s 6-hour rollout. Δ can be 20 yr (sample pair), 50 yr, or ~550 yr (intended). The model is a **spinup operator**, closer to LandSim’s early→eq map, but with spatial coupling on \(G\).
 
 ### 3.1 Why a probabilistic (diffusion) model is plausible
 
@@ -165,7 +252,7 @@ A long ocean spinup is not a unique function of \(x_t\): mesoscale (even at QU24
 ### 4.2 Graph construction (once per mesh)
 
 ```
-MPAS restart or mesh file
+MPAS restart (same file as state)
   → node_cells:  [nCells,  F_static]
   → node_edges:  [nEdges,  F_static]
   → edges cell→cell   from cellsOnCell (symmetric)
@@ -191,7 +278,7 @@ Normalize with per-variable (optionally per-level) scalers, LandSim `IndividualS
 | **B1. NYF monthly cycle on T62, then bilinear to cells** | 12 × (u,v,t,slp,prc,…) → per-cell seasonal tokens | Single NYF case; cheap; matches DATM `mapalgo=bilinear` |
 | **B2. Keep T62 as a second node set** | GraphCast-style bipartite grid→mesh GNN | Later, if forcing varies in time or product |
 
-For NYF, **B1 with a 12-month climatology** (or even annual mean) is enough. Do not feed 1460×T62 raw 6-hour fields into the ocean GNN.
+For NYF, **use Hyun’s remapped files** (`nyf.ncep.oQU240.*`, `ncol=7153`) rather than re-running T62→mesh. They were built with **area-average** (`map_T62_TO_oQU240_aave.151209.nc`), not `datm_in` bilinear. Aggregate 6-hourly NCEP to a 12-month climatology (or annual mean) before the GNN. Do not feed 1460×T62 raw 6-hour fields into the ocean GNN.
 
 **C. Physics \(\theta\)**  
 Encode `mpaso_variables` to a vector \(e_\theta\). Inject with FiLM on every residual block. If \(\theta\) is constant in the batch, this is a no-op at train time but keeps the interface for multi-physics data.
@@ -284,34 +371,24 @@ Build `Ocean_dataGEN` with explicit roles:
 | Y | Restart at \(t+\Delta\) | Same fields |
 | F | DATM NYF | Monthly cycle remapped to cells (shared across samples for NYF) |
 | θ | `mpaso_in` | Config vector (shared per run) |
-| G | Mesh / restart geometry | Graph cache keyed by mesh ID |
+| G | Restart geometry | Graph cache keyed by mesh ID |
 | QC | History optional | Deep OHC time series for the same years |
 
 **Identity join on cell/edge indices** when mesh matches. No lat/lon KD-tree.
 
 ### 5.2 How to get enough pairs from limited spinups
 
-Kang’s **intended** pairing is one map: 50 yr → 600 yr. That is **one supervised example** per simulation. A network cannot be trained on that.
+Kang’s **intended** pairing is one map: 50 yr → 600 yr. A single pair cannot train a network. On Frontier we now have **two 5-year monthly windows**:
 
-Use the **long trajectory** as a dataset:
+| Recipe | Pair definition | N on this archive | Purpose |
+|---|---|---|---|
+| **Long-horizon (primary)** | Month-aligned 005y-MM → 060y-MM | **60** at Δ = 550 yr | The scientific spinup operator |
+| **Jan-1 subset** | 0051-01 → 0601-01, …, 0055-01 → 0605-01 | 5 | Cleaner annual baseline |
+| **Sliding monthly** | Consecutive months inside 51–55 or 601–605 | 59+59 | Short residual / IO tests |
+| **Same-month +1 yr** | Inside a window | 48+48 | Seasonal-aligned 1-year Δ |
+| **Physics / forcing / mesh ensembles** | Later | 0 here | Makes θ and F identifiable |
 
-| Recipe | Pair definition | Purpose |
-|---|---|---|
-| **Multi-horizon** | All \((t, t+\Delta)\) with \(\Delta \in \{20,50,100,\ldots\}\) yr | Learn a family of spinup operators; condition on \(\Delta\) (or \(\log\Delta\)) as a token |
-| **Sliding annual** | Consecutive Jan-1 restarts along the run | Dense local residuals; easier than 550-year jump |
-| **Curriculum** | Train short \(\Delta\) first, then increase | Stabilizes residual learning |
-| **Deep-only tensors** | Store only k=46…60 + mask | Cuts volume ~4× vs full 60 levels |
-| **Physics ensemble** (later) | Same mesh, perturbed GM/Redi/visc | Makes \(\theta\) identifiable |
-| **Forcing ensemble** (later) | NYF vs IAF vs precip scale | Makes \(F\) identifiable |
-| **Mesh transfer** (later) | QU240 train, EC holdout or dual-mesh | Tests graph-native generalization |
-
-**Minimum viable training set (proposed, Hyun/Alice to confirm inventory):**
-
-- All annual (or 5-year) restarts from the QU240 NYF spinup between ~year 20 and ~year 600.
-- Labels: next checkpoint and/or the 600-year state (two heads or \(\Delta\)-conditioned).
-- Hold out: a late window (e.g. years 500–600) **or** a geographic basin, not random cells.
-
-If only a handful of restarts exist, **do not start diffusion**; compute persistence RMSE and stop until more checkpoints are exported.
+**Still not in this dump:** years 56–600 (or 20–50) as a continuous restart series. If only these two windows exist, **do not start diffusion**; train Track A on the 60 long-horizon pairs (and short-Δ pairs as auxiliary), hold out e.g. year 55 / 605 or a basin.
 
 ### 5.3 Normalization and QC
 
@@ -319,13 +396,13 @@ If only a handful of restarts exist, **do not start diffusion**; compute persist
 - Per-variable min-max or z-score; log-scale for `config_mom_del4`-class coefficients in \(\theta\).
 - Drop cells with `bottomDepth ≤ 2000` from the loss (or weight 0).
 - Reject samples with fill-value storms / NaNs in deep T/S.
-- Verify OHC: \(\sum_i \sum_{k\in\text{deep}} \rho_0 c_p\, T_{i,k}\, h_{i,k}\, A_i\) vs history `timeMonthly_avg_oceanHeatContent2000mToBot` (global sum).
+- Verify OHC with the formula in §2.4 vs history `timeMonthly_avg_oceanHeatContent2000mToBot` (global sum).
 
 ### 5.4 On-disk layout (suggested)
 
 ```
 data/processed/QU240/
-  mesh_graph.npz          # once
+  mesh_graph.npz          # once, built from any QU240 restart
   scalers/               # IndividualScalerManager analogue
   pairs/index.parquet    # t, t_delta, paths, mesh_id, config_id
   pairs/xxxxx.npz        # tensors: x_t, x_td, mask, (optional F_cell)
@@ -341,32 +418,35 @@ Compute on the same pairs:
 2. **Linear drift:** fit global/basin deep-T trend vs year, apply uniformly
 3. **Climatology of late state:** predict the time-mean of all Y in train
 
-Report area-weighted RMSE/bias for deep T, S, and OHC 2000 m–bottom. Any GNN/diffusion must beat (1) and (2).
+Report area-weighted RMSE/bias for deep T, S, and OHC 2000 m–bottom. Any GNN/diffusion must beat (1) and (2). First number to publish: persistence **0051-01-01 → 0601-01-01** on deep T (then the other 59 aligned months).
 
 ---
 
 ## 6. Implementation work packages
 
-### WP0 — Name and schema lock (1–2 days)
+### WP0 — Schema lock — **done locally**
 
-- [ ] Freeze NetCDF names to the restart header (`layerThickness`, `normalVelocity`, …).
-- [ ] Update `restart_variables` / `RESTART_DEEP_OCEAN_STATE.md` aliases.
-- [ ] Inventory Kang’s full restart times on NERSC (list of `rst.*.nc` years).
-- [ ] Confirm 50 yr and 600 yr file paths vs the 0661/0681 samples.
+- [x] Freeze NetCDF names to the restart header (`temperature`, `salinity`, `layerThickness`, `normalVelocity`).
+- [x] Selection lists: `data/OceanSpin_sample/restart_variables`, `mpaso_variables`; docs in `data/docs/`.
+- [x] Deep mask k=46…60; OHC ρ₀/cₚ from namelist; history OHC field names.
+- [x] DATM stream map and NYF cycle semantics; remapped oQU240 files on Frontier.
+- [x] Inventory Hyun’s Frontier windows: years **51–55** and **601–605** monthly (`data/docs/FRONTIER_QU240_ARCHIVE.md`).
+- [x] Confirm ~50 yr and ~600 yr paths: `rst.0051-*` and `rst.0601-*` (not 0661/0681).
+- [ ] Ask Hyun whether more years exist between 55 and 601 (or after 605).
 
-### WP1 — Graph + dataset (1–2 weeks)
+### WP1 — Graph + dataset (1–2 weeks; starts as soon as one restart `.nc` is local)
 
-- [ ] `mpas_mesh_to_typedgraph.py` on QU240 (unit test: nCells, degree ≤ 6, area sum).
+- [ ] `mpas_mesh_to_typedgraph.py` on `rst.0051-01-01` (unit test: nCells=7153, degree ≤ 6, area sum vs 4πR²).
 - [ ] Deep-mask builder from `refBottomDepth` / `maxLevelCell`.
-- [ ] Pair index from restart catalog; PyTorch `Dataset` returning cell/edge tensors.
-- [ ] DATM monthly climatology remap T62 → cells (reuse E3SM map file if available: `domain.lnd.T62_oQU240.*`).
-- [ ] Baseline RMSE script.
+- [ ] Pair index: 60 month-aligned 005y-MM → 060y-MM; optional short-Δ inside each window.
+- [ ] DATM: load `remapped_datm/QU240-NYF/remapped/` (already on cells); monthly-mean NCEP.
+- [ ] Baseline RMSE: persistence 0051-01-01 → 0601-01-01 on deep T (then all 60 aligned months).
 
 ### WP2 — Deterministic GNN MVP (Track A)
 
 - [ ] Cell-only residual GNN: predict deep \(\Delta T,\Delta S\) (thickness frozen or predicted).
 - [ ] Area × thickness weighted loss; FiLM stubs for \(F,\theta,\Delta\).
-- [ ] Copy-template restart writeback for predicted fields only.
+- [ ] Copy-template restart writeback for predicted fields only (keep `normalBarotropicVelocity` and auxiliaries from template).
 - [ ] Compare maps + global deep OHC vs 0681 / 600-yr target.
 
 ### WP3 — Dynamics smoke test
@@ -391,16 +471,16 @@ Report area-weighted RMSE/bias for deep T, S, and OHC 2000 m–bottom. Any GNN/d
 
 | Item | v1 choice |
 |---|---|
-| Mesh | QU240 only |
+| Mesh | QU240 only (`nCells=7153`) |
 | State | Deep k=46–60 `temperature`, `salinity`; optional `layerThickness` |
 | Velocity | Deferred (Track A cell-only) |
-| Atmosphere | NYF 12-month means remapped to cells (condition, may be constant) |
-| Config | `mpaso_variables` vector (condition, may be constant) |
+| Atmosphere | NYF 12-month means remapped to cells (condition, constant for this case) |
+| Config | `mpaso_variables` vector (condition, constant for this case) |
 | Lead \(\Delta\) | Conditioning token; train on all available checkpoint gaps |
 | Processor | 10–12 step interaction GNN, 128–256 latent, residual |
 | Loss | Huber, `areaCell` × `restingThickness` weights, deep mask |
 | Generative | **Interface ready** (noise/FiLM slot); **not trained** until pair count allows |
-| Output | Residual add + mask → restart overwrite |
+| Output | Residual add + mask → restart overwrite of selected 3D fields |
 
 ---
 
@@ -408,34 +488,42 @@ Report area-weighted RMSE/bias for deep T, S, and OHC 2000 m–bottom. Any GNN/d
 
 | Risk | Mitigation |
 |---|---|
-| Two sample restarts mistaken for a dataset | Inventory the full spinup; pair factory along time |
-| Alias mismatch (`layerThickness` vs `layerThickness`) | Header is source of truth |
+| Two format restarts (0661/0681) mistaken for a dataset | Inventory the full spinup; pair factory along time |
+| History vs restart name mismatch (`activeTracers_temperature` vs `temperature`) | Restart header is writeback source of truth; history is QC only |
 | Learning \(F\) or \(\theta\) from one NYF case | Encode them, but evaluate only on ocean-state skill until ensembles exist |
 | Interpolating ocean to lat–lon “to use ViT/diffusion-on-images” | Disallowed for ocean state; mesh operators only |
 | Diffusion on 1–20 samples | Overfit; keep Track A until O(10²)+ pairs |
 | Unusable restart (missing auxiliaries) | v1 overwrites only selected 3D fields; keep other restart vars from template |
 | Deep-only prediction vs full-column restart | Document: ML owns k>2000 m; copy shallow levels from \(x_t\) or template |
+| SSH not in restart | Do not invent an `ssh` variable; thickness writeback only |
 
 ---
 
-## 9. What to do on the ocean-data machine next
+## 9. What to do next on this machine / NERSC
 
-1. `ls` the real restart archive; publish a **year list** (this unblocks WP1).
-2. Run `ncdump -v refBottomDepth` and confirm k=46…60 vs 2000 m.
-3. Compute persistence RMSE 0661→0681 on deep T (area-weighted) as the first number in the project.
-4. Implement WP1 graph builder against the 0661 file (no training required).
-5. Only then stand up Track A.
+Schema dump is **done**. Two 5-year monthly windows are **on Frontier**. Remaining:
+
+1. Build the graph from `…/051-055/restart/…rst.0051-01-01_00000.nc` (WP1).
+2. Publish persistence RMSE 0051-01-01 → 0601-01-01 on deep T (`areaCell` × thickness).
+3. Stand up the 60-pair index (month-aligned 550-year map); hold out year 55/605 or a basin.
+4. Load remapped NYF from `remapped_datm/QU240-NYF/remapped/` (do not re-grid T62 for v1).
+5. Ask Hyun if years 56–600 (or 20–50) will be exported; Track C waits on that.
+6. Only then train Track A — 60 long-horizon pairs is a prototype set, not a diffusion set.
 
 ---
 
 ## 10. References in this repo
 
-- `OceanAISpinup_Development_Plan.md` — GraphCast vs LandSim transfer
+- `OceanAISpinup_Implementation_Slides.pptx` — 13-slide team deck (regenerate with `generate_implementation_slides.py`)
+- `OceanAISpinup_Development_Plan.md` — GraphCast vs LandSim transfer; Phase 0 closed
+- `data/docs/FRONTIER_QU240_ARCHIVE.md` — Hyun’s Frontier 51–55 / 601–605 inventory
+- `data/docs/README.md` — variable-selection index
 - `data/docs/DATM_FORCING_VARIABLES.md`
 - `data/docs/MPASO_PHYSICS_CONFIG_INPUTS.md`
 - `data/docs/RESTART_DEEP_OCEAN_STATE.md`
 - `data/OceanSpin_sample/restart/mpas_ocean_header.txt` — **authoritative names and dims**
 - `data/OceanSpin_sample/history/history_header.txt` — OHC diagnostics
+- `data/OceanSpin_sample/mpaso_in` — namelist values including ρ₀, cₚ
 - `Ocean_EQ.png` — deep OHC spinup motivation
 
 *Architecture choice in one line: LandSim pairing + GraphCast typed mesh GNN on MPAS cells/edges, residual early→late map, FiLM for NYF and namelist, diffusion/flow as a drop-in denoiser once the pair factory has enough checkpoints.*

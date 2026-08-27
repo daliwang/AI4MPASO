@@ -1,14 +1,16 @@
 # OceanAISpinup: Codebase Review and Development Plan
 
-**Date:** 2026-07-30  
+**Date:** 2026-07-30 (amended 2026-08-27 with local sample inventory)  
 **Audience:** AI4MPAS / ImPACTS ocean spinup team (Dali, Alice, Hyun, Olawale)  
 **Purpose:** Share findings from reviewing GraphCast and LandSim, and propose a concrete plan for an MPAS-Ocean early→equilibrium AI model that respects unstructured-mesh coupling.
 
 **Related local notes**
 
+- `OceanAISpinup_Implementation_Plan.md` — detailed architecture, pair factory, and WP list (use this for implementation)
 - `background.txt` — team task split and sample data pointers (2026-06-22)
-- `selected_variables.txt` — current namelist / physics-config list (regime conditioning; see §2.1)
+- `selected_variables.txt` — namelist / physics-config list (regime conditioning; locked copy: `data/OceanSpin_sample/mpaso_variables`)
 - `MPAS_Ocean_ML_Init_Report.md` — earlier conceptual GraphCast + LandSim framing
+- Local sample (headers / namelists): `data/OceanSpin_sample/` — see §2.3
 - Sample data (NERSC): `/global/cfs/cdirs/m4259/hgkang/data_for_others/Dali_OceanSpinup_sample`
 - MPAS-Analysis example: [GMPAS-NYF_QU240](https://portal.nersc.gov/project/e3sm/hgkang/ImPACTS/AI_spinup/v3.GMPAS-NYF_QU240/www/)
 
@@ -34,7 +36,7 @@
 2. **Reuse GraphCast’s mesh operator stack:** `TypedGraph` + `DeepTypedGraphNet` encode–process–decode, geometric edge features, residual prediction, optional autoregressive / multi-time training.
 3. **Replace** GraphCast’s lat–lon ↔ icosahedral bridges and LandSim’s cell-independent Transformer with a **native MPAS cell/edge(/vertex) graph processor** and **`areaCell`-weighted** losses.
 
-**Immediate clarification.** `selected_variables.txt` currently lists **namelist physics/config knobs** (GM, KPP, bottom drag, EOS, remapping, etc.). Those should condition the model as a **simulation regime**, but they are **not** the prognostic restart fields the AI should predict. A separate prognostic IO list must be locked with Alice/Hyun against restart/history headers on the sample data machine.
+**Immediate clarification.** `selected_variables.txt` / `mpaso_variables` list **namelist physics/config knobs** (GM, KPP, bottom drag, EOS, remapping, etc.). Those should condition the model as a **simulation regime**, but they are **not** the prognostic restart fields the AI should predict. Prognostic names are now locked against the sample restart header (§2.3): `temperature`, `salinity`, `layerThickness`, `normalVelocity` on deep levels k=46…60.
 
 ---
 
@@ -44,12 +46,14 @@
 
 | Role | Content | Status |
 |------|---------|--------|
-| **Regime / config tokens** | Namelist-style settings in `selected_variables.txt` (viscosity, GM/Redi, KPP, drag, EOS, …) | Draft list exists |
-| **Static mesh features** | `latCell`/`lonCell`, `areaCell`, bathymetry / bottom depth, Coriolis, land/ice masks, connectivity | From mesh / init files |
-| **Early state (X)** | Short-spinup restart and/or history on the **same mesh** | Sample path available on NERSC |
-| **Context (optional)** | Atmospheric/bulk forcings, restoring, external analyses | To be specified like LandSim forcing streams |
-| **Target (Y)** | Near-equilibrium / long-spinup **restart prognostics** (T, S, thickness, SSH, velocities, …) | **Needs schema lock on data machine** |
-| **Diagnostics (validation only)** | OHC and related indices from history (`h0`); MLD proxies; drift metrics | Alice/Hyun notes in `background.txt` |
+| **Regime / config tokens** | Namelist settings in `mpaso_variables` (viscosity, GM/Redi, KPP, drag, EOS, …) | **Locked** (one NYF case; constant per run) |
+| **Static mesh features** | `latCell`/`lonCell`, `areaCell`, `bottomDepth`, Coriolis, `cellsOnCell` / edge incidence | **In the restart file** (QU240: 7153 cells, 22403 edges, 60 levels) |
+| **Early state (X)** | Restart deep T/S/`layerThickness` (optional `normalVelocity`) | Format sample: `rst.0661-01-01`; intended scientific X is ~50 yr |
+| **Context** | DATM CORE2_NYF (NCEP `u,v,t,slp` + GXGXS `prc`; not history coupler fluxes) | **Locked**; NYF cycles — does not differentiate pairs until more cases exist |
+| **Target (Y)** | Same restart prognostics at later time, deep mask k=46…60 | Format sample: `rst.0681-01-01`; intended scientific Y is ~600 yr |
+| **Diagnostics (validation only)** | History OHC bands, especially `timeMonthly_avg_oceanHeatContent2000mToBot`; MLD; N² | Present in sample monthly history `0678-11` |
+
+`ssh` is **not** in the sample restart; do not treat it as a writeback field. Use `layerThickness` plus the template restart for a usable file.
 
 ### 2.2 Success criteria (proposed)
 
@@ -57,6 +61,26 @@
 - Stratification / static-stability sanity (no systematic unstable profiles).
 - **Short forward test:** restart from ML state, integrate **N days** with the same namelist, compare drift to restart-from-full-spinup.
 - Wallclock / human-iteration savings vs completing full ocean spinup for new cases.
+
+### 2.3 Local sample findings (2026-08-27)
+
+Inspected `data/OceanSpin_sample/` (headers, `mpaso_in`, DATM streams). NetCDF payloads are gitignored.
+
+| Item | Finding |
+|------|---------|
+| Case | `v3.GMPAS-NYF_QU240`, MPAS git `be7af980a1`, `noleap`, `config_dt=01:00:00`, z-star 60 levels |
+| Restart dims | `nCells=7153`, `nEdges=22403`, `nVertices=15211`, `maxEdges=6` |
+| Prognostic names | `temperature`, `salinity`, `layerThickness`, `normalVelocity` (not history aliases) |
+| Deep mask | `refBottomDepth[k]>2000` and `k≤maxLevelCell` → **k=46…60** (~2075–5500 m) |
+| Format pair | Original sample 0661/0681 (20 yr, late). **Frontier:** monthly rst **0051–0055** and **0601–0605** (60 + 60 files) |
+| History | `timeSeriesStatsMonthly.0678-11-01`; OHC 0–700 / 700–2000 / 2000–bot / sfc–bot |
+| OHC constants | ρ₀=`config_density0=1026`, cₚ=`config_specific_heat_sea_water=3996` |
+| DATM | CORE2_NYF cycle; NCEP T62 94×192, `time=1460`; bilinear to oQU240 |
+| Physics | GM/Redi κ=900; mom_del2=4000; mom_del4=2e14; KPP+convection on |
+
+**Still needed from Hyun’s archive:** whether more years exist between 55 and 601 (or after 605). Two 5-year monthly windows are already on Frontier.
+
+Details, IO contract, and work packages: `OceanAISpinup_Implementation_Plan.md`. Variable notes: `data/docs/`.
 
 ---
 
@@ -189,23 +213,25 @@ Early restart/history + forcings + config/mesh statics
 
 ### 5.2 C-grid staging
 
-- **Phase 2 MVP:** cell-centered prognostics (T, S, SSH, layer thickness) only.
-- **Phase 3:** add **edge** nodes for `normalVelocity` (and related) so stagger structure is preserved.
+- **Phase 2 MVP:** cell-centered prognostics (`temperature`, `salinity`, `layerThickness`) only. Sample restart has **no** standalone `ssh`.
+- **Phase 3:** add **edge** nodes for `normalVelocity` so stagger structure is preserved.
 - Avoid collapsing all fields to cell centers permanently if restart writeback must remain dynamically usable.
 
 ---
 
 ## 6. Phased roadmap
 
-### Phase 0 — Schema and targets (do this on the ocean-data machine)
+### Phase 0 — Schema and targets — **done locally** (2026-08-27)
 
-1. `ncdump -h` (or equivalent) on sample **restart** and **history** files from Hyun’s path; document dims (`nCells`, `nEdges`, `nVertLevels`, …) and variable names against the user guide.
-2. Split IO lists:
-   - `Ocean_IO_config.txt` — regime tokens (starting from `selected_variables.txt`)
-   - `Ocean_IO_prognostics.txt` — restart fields to predict
-   - `Ocean_IO_diagnostics.txt` — OHC / validation-only fields
-3. Operationally define “near equilibrium” (calendar time vs OHC / drift thresholds from Alice/Hyun).
-4. Register mesh IDs for v1 (**QU240 first**).
+1. ~~`ncdump -h` on sample restart and history~~ — headers in `data/OceanSpin_sample/`; dims and names documented in §2.3 and `data/docs/`.
+2. IO lists (machine-readable):
+   - `data/OceanSpin_sample/mpaso_variables` — regime tokens
+   - `data/OceanSpin_sample/restart_variables` — restart fields to predict (deep mask)
+   - History diagnostics: `timeMonthly_avg_oceanHeatContent*` (see implementation plan §2.4)
+3. “Near equilibrium” for v1: **calendar ~600 yr** plus deep OHC 2000 m–bottom as the slow-spinup index (`Ocean_EQ.png`). Drift thresholds still to confirm with Alice/Hyun.
+4. Mesh ID v1: **QU240** (`nCells=7153`).
+
+Open: full restart year inventory on NERSC; payload `.nc` files on the workdir.
 
 ### Phase 1 — DataGEN on the same mesh
 
@@ -252,10 +278,10 @@ Early restart/history + forcings + config/mesh statics
 
 | Person | Next actions |
 |--------|--------------|
-| **Alice** | Lock prognostic restart + equilibrium diagnostic lists; confirm OHC / other steady-state indices |
-| **Hyun** | Confirm sample restart/history paths; QU240 case; MPAS-Analysis hooks; share utilities for time series / maps |
-| **Olawale** | Port LandSim dataGEN / training-sample strategies to OceanAISpinup; document pairing rules |
-| **Dali** | TypedGraph builder + Track A MVP + restart ingest design; keep this report updated from data-machine findings |
+| **Alice** | Confirm OHC / drift thresholds for “near eq”; review deep-mask and history QC list |
+| **Hyun** | Confirm whether years 56–600 (or 20–50) will be exported; MPAS-Analysis / plot utilities |
+| **Olawale** | Port LandSim dataGEN pairing to `Ocean_dataGEN` using locked IO lists in `data/OceanSpin_sample/` |
+| **Dali** | WP1 graph builder from QU240 restart; Track A MVP; keep implementation plan current |
 
 ---
 
@@ -263,14 +289,14 @@ Early restart/history + forcings + config/mesh statics
 
 Use this list when improving the report with real file schemas:
 
-- [ ] List restart variables and dims from one early and one near-eq sample
-- [ ] List history variables needed for OHC / MLD / validation plots
-- [ ] Confirm which fields are required for a usable restart vs optional
-- [ ] Record mesh name, vertical grid, and namelist hash / key config diffs between early and late runs
-- [ ] Estimate number of usable (early, late) pairs and time spacing
-- [ ] Draft `Ocean_IO_prognostics.txt` and attach example `ncdump` snippets
-- [ ] Note any land/ice/shelf masking rules for loss and writeback
-- [ ] Identify baseline RMSE of persistence on T/S/SSH with `areaCell` weights
+- [x] List restart variables and dims from one early and one near-eq **format** sample (`0661`, `0681`; same schema)
+- [x] List history variables needed for OHC / MLD / validation plots (`history_header.txt`)
+- [x] Confirm which fields are required for a usable restart vs optional (overwrite T/S/`layerThickness` only in v1; keep auxiliaries from template; no standalone `ssh`)
+- [x] Record mesh name, vertical grid, and key configs (QU240, z-star 60, `mpaso_in`; early vs late share one namelist in this case)
+- [x] Estimate number of usable (early, late) pairs: **60 month-aligned 550-year pairs** on Frontier (years 51–55 × 601–605); plus short-Δ inside each window
+- [x] Prognostic IO list: `data/OceanSpin_sample/restart_variables` + restart header
+- [x] Masking: `maxLevelCell` / `bottomDepth>2000` / fill value; no `cellMask` array in restart
+- [ ] Identify baseline RMSE of persistence on deep T/S (and OHC) with `areaCell` weights — run on **0051-01-01 → 0601-01-01**
 
 ---
 
@@ -283,7 +309,10 @@ Use this list when improving the report with real file schemas:
 - `MPAS_Ocean_Users_Guide_E3SM_V3.0.0.pdf` — authoritative MPAS-Ocean I/O
 - `Copy of Running MPAS-Ocean on Perlmutter and Frontier.txt` — HPC workflow notes
 - `background.txt`, `selected_variables.txt` — team notes and current config list
+- `data/docs/` — DATM, `mpaso_in`, restart deep-ocean selection
+- `data/OceanSpin_sample/` — GMPAS-NYF_QU240 headers, namelists, stream XML
+- `OceanAISpinup_Implementation_Plan.md` — architecture, pair factory, work packages
 
 ---
 
-*Report generated from GraphCast + LandSim codebase review for AI4MPAS OceanAISpinup planning. Please amend §2 and §9 after inspecting the NERSC sample spinup archive.*
+*Report generated from GraphCast + LandSim codebase review for AI4MPAS OceanAISpinup planning. §2.3 and §9 updated 2026-08-27 from the local sample headers. Remaining blocker: full restart year inventory + NetCDF payloads.*
