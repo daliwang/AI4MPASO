@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>OceanAISpinup handoff</title>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --fg:#e2e8f0; --muted:#94a3b8; --acc:#38bdf8; --ok:#4ade80; --warn:#fbbf24; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family: "Segoe UI", system-ui, sans-serif; }
+  .deck { height:100%; }
+  section {
+    display:none; height:100%; padding:48px 64px 72px;
+    flex-direction:column; justify-content:center;
+  }
+  section.on { display:flex; }
+  h1 { font-size: 2.4rem; font-weight:700; margin:0 0 12px; letter-spacing:-0.02em; }
+  h2 { font-size: 1.85rem; font-weight:650; margin:0 0 20px; color:var(--acc); }
+  p, li { font-size: 1.15rem; line-height:1.45; }
+  .sub { color:var(--muted); font-size:1.1rem; margin-bottom:28px; }
+  .muted { color:var(--muted); }
+  table { border-collapse:collapse; font-size:1.05rem; margin:12px 0 8px; }
+  th, td { text-align:left; padding:8px 16px 8px 0; border-bottom:1px solid #334155; vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .eq { font-size:1.25rem; background:var(--card); padding:16px 20px; border-radius:10px; }
+  pre { background:var(--card); padding:16px 20px; border-radius:10px; font-size:0.95rem; overflow:auto; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:stretch; }
+  .row img { width:48%; min-width:280px; background:#111827; border-radius:8px; }
+  .ok { color:var(--ok); font-weight:600; }
+  .warn { color:var(--warn); }
+  .kicker { text-transform:uppercase; letter-spacing:0.12em; font-size:0.75rem; color:var(--acc); margin-bottom:8px; }
+  footer {
+    position:fixed; bottom:0; left:0; right:0; padding:10px 24px;
+    color:var(--muted); font-size:0.85rem; display:flex; justify-content:space-between;
+    background:linear-gradient(transparent, var(--bg));
+  }
+  kbd { background:#334155; padding:1px 6px; border-radius:4px; font-size:0.8rem; }
+</style>
+</head>
+<body>
+<div class="deck">
+
+<section class="on">
+  <div class="kicker">AI4MPAS / ImPACTS</div>
+  <h1>OceanAISpinup handoff</h1>
+  <p class="sub">Branch <strong>handoff/prototype-e2e</strong> · 10 September 2026</p>
+  <p>Map a year-~50 QU240 restart to deep T/S at year ~600, and write a <strong>legal MPAS restart</strong>.</p>
+  <p class="muted">Not a weather model. Not GenCast. Prototype first, then the team takes over.</p>
+</section>
+
+<section>
+  <h2>What this branch is</h2>
+  <p class="sub"><code>github.com/daliwang/AI4MPAS</code> · checkout <code>handoff/prototype-e2e</code></p>
+  <table>
+    <tr><th>In git (review this)</th><th>Not in git</th></tr>
+    <tr><td><code>oceanai/</code> workflow + GNN + writeback</td><td>19 GB Kang raw dump</td></tr>
+    <tr><td>Tutorials 00–06</td><td><code>data/processed/</code> working tensors</td></tr>
+    <tr><td><strong>X vs ML vs Y snapshot</strong> (tables + maps)</td><td>57 MB <code>*.ml.nc</code> files</td></tr>
+    <tr><td>AI-ready pack <em>recipe</em> (~113 MB tar on Lustre)</td><td>Checkpoints / <code>.venv</code></td></tr>
+  </table>
+  <p><code>main</code> still has old notes and PPTX. Take over from <strong>this branch</strong>.</p>
+</section>
+
+<section>
+  <h2>The restart contract</h2>
+  <p class="eq">Copy year-55 restart. Overwrite only deep T and S (k = 46…60). Keep thickness, velocity, mesh, xtime.</p>
+  <p>60 month-aligned pairs, Δ = 550 yr. Train years 51–54 (48). Hold out 55 → 605 (12).</p>
+  <p>v1 does <span class="warn">not</span> predict SSH, velocity, or the upper ocean.</p>
+</section>
+
+<section>
+  <h2>Workflow</h2>
+<pre>Kang Dali/  raw restarts + remapped NYF
+  │
+  ├─ pair index, deep mask, mesh graph, monthly DATM
+  ├─ extract 60 pair npz
+  ├─ persistence baseline
+  ├─ tiny residual GNN
+  ├─ write_restart  →  *.ml.nc
+  └─ snapshot       →  X vs ML vs Y</pre>
+  <p>Frontier: <code>python -m oceanai.run_prototype --stage all</code><br/>
+  Other GPU cluster: copy the <strong>113 MB</strong> pack, not the 19 GB dump.</p>
+</section>
+
+<section>
+  <h2>Tutorials</h2>
+  <table>
+    <tr><th>#</th><th>Use when you…</th></tr>
+    <tr><td>00</td><td>Need vocabulary (X, Y, deep, persistence)</td></tr>
+    <tr><td>01</td><td>Are on Frontier — smoke run</td></tr>
+    <tr><td>02</td><td>Move tensors to another GPU cluster</td></tr>
+    <tr><td>03</td><td>Touch restart writeback</td></tr>
+    <tr><td>04</td><td>Own OHC / RMSE</td></tr>
+    <tr><td>05</td><td>Will run N-day MPAS (recipe only)</td></tr>
+    <tr><td>06</td><td>Review the X / ML / Y snapshot</td></tr>
+  </table>
+  <p>Index: <code>tutorials/README.md</code></p>
+</section>
+
+<section>
+  <h2>Snapshot setup (holdout January)</h2>
+  <table>
+    <tr><th>Role</th><th>File</th><th>xtime</th></tr>
+    <tr><td>X early</td><td><code>rst.0055-01-01</code></td><td>0055-01-01</td></tr>
+    <tr><td>ML AI</td><td><code>rst.0055-01-01.ml.nc</code></td><td>0055-01-01 (template)</td></tr>
+    <tr><td>Y truth</td><td><code>rst.0605-01-01</code></td><td>0605-01-01</td></tr>
+  </table>
+  <p class="ok">Contract: max |ML − X| = 0 on shallow T/S, layerThickness, normalVelocity.</p>
+  <p>In git: <code>prototype/snapshots/0055-01/compare.md</code></p>
+</section>
+
+<section>
+  <h2>Deep T vs ground truth</h2>
+  <p class="sub">Area × thickness weighted, k = 46…60</p>
+  <table>
+    <tr><th></th><th>Mean T</th><th>RMSE vs Y</th><th>this − Y</th></tr>
+    <tr><td>X (persistence)</td><td>1.45 °C</td><td>1.43 °C</td><td>+1.37 °C too warm</td></tr>
+    <tr><td><strong>ML</strong></td><td>0.10 °C</td><td class="ok">0.39 °C</td><td>+0.03 °C</td></tr>
+    <tr><td>Y (simulation)</td><td>0.075 °C</td><td>—</td><td>—</td></tr>
+  </table>
+  <p>OHC 2000 m–bottom rel. error vs Y: X 0.43% → ML <span class="ok">0.065%</span>.</p>
+  <p>Salinity 550-yr change is small. Do not over-claim S skill.</p>
+</section>
+
+<section>
+  <h2>Maps — column-mean deep T</h2>
+  <p class="sub">Same color scale. Late ocean is colder; ML follows Y, not X.</p>
+  <div class="row">
+    <img src="../prototype/snapshots/0055-01/map_T_X.svg" alt="X early deep T"/>
+    <img src="../prototype/snapshots/0055-01/map_T_Y.svg" alt="Y truth deep T"/>
+    <img src="../prototype/snapshots/0055-01/map_T_ML.svg" alt="ML deep T"/>
+    <img src="../prototype/snapshots/0055-01/map_T_ML_minus_Y.svg" alt="ML minus Y"/>
+  </div>
+</section>
+
+<section>
+  <h2>Who owns what / what not to build</h2>
+  <table>
+    <tr><th>Person</th><th>Owns next</th></tr>
+    <tr><td>Olawale</td><td>Pair factory, scalers, training loop</td></tr>
+    <tr><td>Alice</td><td>OHC maps, holdout interpretation</td></tr>
+    <tr><td>Hyun</td><td>N-day forward from <code>*.ml.nc</code></td></tr>
+    <tr><td>Dali</td><td>Advisor; restart contract</td></tr>
+  </table>
+  <p class="warn">Do not train GenCast on 60 NYF pairs. Do not interpolate T/S to lat–lon. Do not write history tracers into a restart.</p>
+</section>
+
+<section>
+  <h2>Monday morning</h2>
+<pre>git checkout handoff/prototype-e2e
+
+# Frontier
+python -m oceanai.run_prototype --stage all --smoke
+
+# Other cluster
+export OCEANAI_PROCESSED=/path/to/QU240
+python -m oceanai.data.pack_aiready --verify-only</pre>
+  <p>Then: <code>tutorials/00-concepts.md</code> and <code>prototype/snapshots/0055-01/compare.md</code>.</p>
+</section>
+
+</div>
+<footer>
+  <span>OceanAISpinup · handoff/prototype-e2e</span>
+  <span><span id="pg">1</span> / <span id="n">–</span> &nbsp; <kbd>←</kbd> <kbd>→</kbd> or click</span>
+</footer>
+<script>
+  const slides = [...document.querySelectorAll("section")];
+  document.getElementById("n").textContent = slides.length;
+  let i = 0;
+  function show(k) {
+    i = (k + slides.length) % slides.length;
+    slides.forEach((s, j) => s.classList.toggle("on", j === i));
+    document.getElementById("pg").textContent = i + 1;
+  }
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); show(i + 1); }
+    if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); show(i - 1); }
+    if (e.key === "Home") show(0);
+    if (e.key === "End") show(slides.length - 1);
+  });
+  document.querySelector(".deck").addEventListener("click", e => {
+    if (e.target.closest("a, img")) return;
+    show(i + (e.clientX > innerWidth / 2 ? 1 : -1));
+  });
+</script>
+</body>
+</html>

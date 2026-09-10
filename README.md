@@ -11,10 +11,12 @@ are not in git.
 
 | Order | Doc | Why |
 |---|---|---|
-| 1 | [`tutorials/README.md`](tutorials/README.md) | On-ramp: concepts + five hands-on walkthroughs |
-| 2 | [`prototype/README.md`](prototype/README.md) | Commands + holdout metrics from 2026-09-10 |
-| 3 | [`data/docs/AIREADY_DATASET.md`](data/docs/AIREADY_DATASET.md) | Portable pack for a second GPU cluster |
-| 4 | [`OceanAISpinup_Prototype_Plan.md`](OceanAISpinup_Prototype_Plan.md) | What shipped, roles after handoff |
+| 0 | [`docs/handoff_briefing.html`](docs/handoff_briefing.html) | Short team intro (branch, workflow, tutorials, snapshot) |
+| 1 | [`tutorials/README.md`](tutorials/README.md) | On-ramp: concepts + hands-on walkthroughs |
+| 2 | [`prototype/snapshots/0055-01/compare.md`](prototype/snapshots/0055-01/compare.md) | X vs ML vs Y restart snapshot (in git) |
+| 3 | [`prototype/README.md`](prototype/README.md) | Commands + holdout metrics |
+| 4 | [`data/docs/AIREADY_DATASET.md`](data/docs/AIREADY_DATASET.md) | Portable pack for a second GPU cluster |
+| 5 | [`OceanAISpinup_Prototype_Plan.md`](OceanAISpinup_Prototype_Plan.md) | What shipped, roles after handoff |
 
 Architecture and data freeze (read when you need the *why*):
 
@@ -63,7 +65,8 @@ oceanai/                 # pair factory, GNN, writeback, packager
 prototype/README.md      # commands + holdout table
 data/docs/               # variable selection + AI-ready card
 data/OceanSpin_sample/   # headers, namelists (no NetCDF)
-tutorials/               # 00 concepts + 01–05 hands-on
+tutorials/               # 00–06 hands-on
+prototype/snapshots/     # X vs ML vs Y tables + maps (in git)
 ```
 
 Gitignored: `.venv/`, `data/processed/`, `data/aiready/` (the tensor pack), `*.nc`.

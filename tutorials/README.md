@@ -1,5 +1,7 @@
 # Tutorials
 
+Team intro (10 slides): [`docs/handoff_briefing.html`](../docs/handoff_briefing.html) (open in a browser, ← →). Markdown twin: [`docs/HANDOFF_BRIEFING.md`](../docs/HANDOFF_BRIEFING.md).
+
 Start with **[00 — Concepts](00-concepts.md)** (five minutes). Then pick **one** path:
 
 | If you are… | Do this |
