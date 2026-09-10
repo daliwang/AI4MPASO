@@ -28,6 +28,7 @@ Writes `prototype/snapshots/0055-01/`:
 - `compare.md` — tables (contract, deep T/S, OHC, per-level means, 3 example columns)
 - `compare.json` — same numbers, machine-readable
 - `map_T_X.svg` / `map_T_ML.svg` / `map_T_Y.svg` / `map_T_ML_minus_Y.svg` — column-mean deep T
+- `map_S_X.svg` / `map_S_ML.svg` / `map_S_Y.svg` / `map_S_ML_minus_Y.svg` — column-mean deep S
 
 Open `compare.md` in the editor. Open the SVGs for a global picture (blue = colder).
 

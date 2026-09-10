@@ -30,34 +30,95 @@ GitHub: `daliwang/AI4MPAS` · branch **`handoff/prototype-e2e`**
 
 ---
 
-# One-sentence contract
+# Pilot workflow
 
-Copy the **year-55 restart**. Overwrite **only** deep `temperature` and `salinity` (k=46…60). Keep thickness, velocity, mesh, `xtime`.
+Case `v3.GMPAS-NYF_QU240` on Kang’s Frontier dump. One command:
 
-\[
-\hat{x}_{600} = x_{50} + f_\phi(x_{50}, F_{\mathrm{NYF}}, G)
-\quad \text{on deep levels}
-\]
+`python -m oceanai.run_prototype --stage all`
 
-60 month-aligned pairs, Δ = 550 yr. Train 48 / hold out 12 (year 55→605).
+| Stage | What happens |
+|---|---|
+| **prepare** | 60 pairs, deep mask k=46…60, cell graph, monthly NYF, scalers |
+| **qc** | Restart OHC vs history AM (sanity, ~10% cut mismatch OK) |
+| **baseline** | Persistence: predict Y = X |
+| **truth-writeback** | Put Y deep T/S into X template — proves the writer |
+| **train** | Residual GraphSAGE, 48 train graphs, early-stop on holdout T |
+| **infer** | Write `rst.0055-01-01.ml.nc` |
+| **snapshot** | `python -m oceanai.qc.snapshot` → X vs ML vs Y |
+
+Off Frontier: copy the **113 MB** AI-ready tar, not the 19 GB dump.
 
 ---
 
-# Workflow
+# Model setup (prototype)
 
-```
-Kang Dali/  raw restarts + remapped NYF
-    │
-    ├─ 1. pair index, deep mask, mesh graph, monthly DATM
-    ├─ 2. extract 60 pair npz
-    ├─ 3. persistence baseline
-    ├─ 4. tiny residual GNN (optional skill)
-    ├─ 5. write_restart → *.ml.nc
-    └─ 6. snapshot X vs ML vs Y
-```
+| Item | Choice |
+|---|---|
+| Mesh | QU240, 7153 cells, graph from `cellsOnCell` (41 018 directed edges) |
+| Deep mask | `refBottomDepth` > 2000 m → **k = 46…60** (15 levels) |
+| Net | Cell-only residual GraphSAGE, **6 layers**, hidden **64** |
+| Node input | 15 T + 15 S + 7 static (lat/lon/depth/month) + 10 monthly NYF = **47** |
+| Target | Residual **ΔT, ΔS** on 15 deep levels (z-scored; add back to X) |
+| Loss | Huber, weights `areaCell × layerThickness`, train-only scalers |
+| Train / holdout | 48 pairs (51–54→601–604) / 12 pairs (55→605) |
+| Hardware | Login-node **CPU** for the published demo |
 
-Frontier: `python -m oceanai.run_prototype --stage all`  
-Other cluster: copy the **113 MB** AI-ready tar, not the 19 GB dump.
+NYF cycles and `mpaso_in` is one case: \(F\) and \(\theta\) are encoded but not identifiable.
+
+---
+
+# Predicted vs copied variables
+
+Restart names (not history aliases).
+
+| Field | Shape | v1 |
+|---|---|---|
+| `temperature` k=46…60 | nCells × 15 | **Predict** ΔT, add to X |
+| `salinity` k=46…60 | nCells × 15 | **Predict** ΔS, add to X |
+| `temperature` / `salinity` k=1…45 | shallow | Copy X |
+| `layerThickness` | nCells × 60 | Copy X |
+| `normalVelocity` | nEdges × 60 | Copy X |
+| Barotropic auxiliaries, mesh, `xtime` | — | Copy X |
+
+No `ssh` in the restart — do not invent it. Do not write history `activeTracers_*`.
+
+---
+
+# Comparison table (holdout January)
+
+**0055-01** (X) vs **ML restart** vs **0605-01** (Y). Deep, area×thickness weighted.
+
+| Metric | X (persist) | **ML** | Y (truth) |
+|---|---|---|---|
+| Mean deep T (°C) | 1.45 | **0.10** | 0.075 |
+| Deep T RMSE vs Y (°C) | 1.43 | **0.39** | — |
+| Deep T bias this−Y (°C) | +1.37 | **+0.03** | — |
+| Mean deep S | 34.736 | 34.726 | 34.714 |
+| Deep S RMSE vs Y | 0.073 | 0.069 | — |
+| OHC 2000 m–bot rel. err. vs Y | 0.43% | **0.065%** | — |
+| Shallow T/S, h, velocity vs X | — | **0 (copy)** | — |
+
+Temperature skill is large-scale cooling. Salinity 550-yr change is small — do not over-claim S.
+
+---
+
+# Maps — column-mean deep T
+
+Same color scale. Late ocean is colder; ML follows Y, not X.
+
+`prototype/snapshots/0055-01/map_T_{X,ML,Y,ML_minus_Y}.svg`
+
+Per-level means: X−Y stays ~1.2–1.6 °C; ML−Y is a few hundredths.
+
+---
+
+# Maps — column-mean deep S
+
+Same layout as T. Signal is weak (global mean X 34.74 → Y 34.71).
+
+`prototype/snapshots/0055-01/map_S_{X,ML,Y,ML_minus_Y}.svg`
+
+RMSE vs Y: persistence 0.073 → ML 0.069. Residual maps are small compared with T.
 
 ---
 
@@ -72,52 +133,6 @@ Other cluster: copy the **113 MB** AI-ready tar, not the 19 GB dump.
 | **04** | Own OHC / RMSE |
 | **05** | Will run N-day MPAS (recipe; not automated) |
 | **06** | Want the X / ML / Y snapshot |
-
-Index: `tutorials/README.md`
-
----
-
-# Snapshot — holdout January
-
-Files compared (not committed as NetCDF):
-
-| Role | Restart | `xtime` |
-|---|---|---|
-| **X** early | `rst.0055-01-01` | 0055-01-01 |
-| **ML** AI | `rst.0055-01-01.ml.nc` | 0055-01-01 (template) |
-| **Y** truth | `rst.0605-01-01` | 0605-01-01 |
-
-**Contract:** max \|ML−X\| = 0 on shallow T/S, thickness, `normalVelocity`.
-
-Report in git: `prototype/snapshots/0055-01/compare.md`
-
----
-
-# Deep T vs ground truth
-
-Area × thickness weighted, k=46…60.
-
-| | Mean T | RMSE vs Y | this − Y |
-|---|---|---|---|
-| X (persistence) | 1.45 °C | **1.43 °C** | +1.37 °C too warm |
-| **ML** | 0.10 °C | **0.39 °C** | +0.03 °C |
-| Y (sim) | 0.075 °C | — | — |
-
-OHC 2000 m–bottom rel. err. vs Y: X **0.43%** → ML **0.065%**.
-
-Salinity: little 550-yr signal (RMSE 0.073 → 0.069). Do not over-claim S.
-
----
-
-# Maps (column-mean deep T)
-
-Same color scale. Late ocean is colder; ML follows Y, not X.
-
-`prototype/snapshots/0055-01/map_T_{X,ML,Y,ML_minus_Y}.svg`
-
-Per-level means: X−Y stays ~1.2–1.6 °C; ML−Y is a few hundredths.
-
-Regenerate: `python -m oceanai.qc.snapshot`
 
 ---
 
@@ -140,9 +155,10 @@ Regenerate: `python -m oceanai.qc.snapshot`
 git checkout handoff/prototype-e2e
 # Frontier:
 python -m oceanai.run_prototype --stage all --smoke
+python -m oceanai.qc.snapshot
 # Other cluster:
 export OCEANAI_PROCESSED=/path/to/QU240
 python -m oceanai.data.pack_aiready --verify-only
 ```
 
-Then read `tutorials/00-concepts.md` and open `prototype/snapshots/0055-01/compare.md`.
+Then `tutorials/00-concepts.md` and `prototype/snapshots/0055-01/compare.md`.

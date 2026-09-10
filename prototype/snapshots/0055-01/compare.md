@@ -116,6 +116,8 @@ Uses T in Kelvin, ρ₀=1026, cₚ=3996, X layer thickness.
 
 ## Maps
 
-Column-mean deep T (valid columns): `map_T_X.svg`, `map_T_ML.svg`, `map_T_Y.svg`, `map_T_ML_minus_Y.svg`.
+Column-mean deep T: `map_T_X.svg`, `map_T_ML.svg`, `map_T_Y.svg`, `map_T_ML_minus_Y.svg`.
+
+Column-mean deep S: `map_S_X.svg`, `map_S_ML.svg`, `map_S_Y.svg`, `map_S_ML_minus_Y.svg`.
 
 Regenerate: `python -m oceanai.qc.snapshot`.

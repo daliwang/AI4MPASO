@@ -5,7 +5,7 @@ and the **late** simulation restart. Not the 57 MB NetCDF files themselves.
 
 | Pair | Report | Maps |
 |---|---|---|
-| Holdout Jan `0055-01` → `0605-01` | [compare.md](0055-01/compare.md) | `map_T_*.svg` in that folder |
+| Holdout Jan `0055-01` → `0605-01` | [compare.md](0055-01/compare.md) | T and S: `map_T_*.svg`, `map_S_*.svg` |
 
 Regenerate (Frontier, after `run_prototype --stage infer`):
 

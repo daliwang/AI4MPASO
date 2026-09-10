@@ -10,22 +10,25 @@
   html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font-family: "Segoe UI", system-ui, sans-serif; }
   .deck { height:100%; }
   section {
-    display:none; height:100%; padding:48px 64px 72px;
+    display:none; height:100%; padding:36px 56px 64px;
     flex-direction:column; justify-content:center;
+    overflow:auto;
   }
   section.on { display:flex; }
-  h1 { font-size: 2.4rem; font-weight:700; margin:0 0 12px; letter-spacing:-0.02em; }
-  h2 { font-size: 1.85rem; font-weight:650; margin:0 0 20px; color:var(--acc); }
-  p, li { font-size: 1.15rem; line-height:1.45; }
-  .sub { color:var(--muted); font-size:1.1rem; margin-bottom:28px; }
+  h1 { font-size: 2.3rem; font-weight:700; margin:0 0 12px; letter-spacing:-0.02em; }
+  h2 { font-size: 1.7rem; font-weight:650; margin:0 0 16px; color:var(--acc); }
+  p, li { font-size: 1.08rem; line-height:1.4; }
+  .sub { color:var(--muted); font-size:1.05rem; margin:0 0 16px; }
   .muted { color:var(--muted); }
-  table { border-collapse:collapse; font-size:1.05rem; margin:12px 0 8px; }
-  th, td { text-align:left; padding:8px 16px 8px 0; border-bottom:1px solid #334155; vertical-align:top; }
+  table { border-collapse:collapse; font-size:0.98rem; margin:8px 0 6px; }
+  th, td { text-align:left; padding:6px 14px 6px 0; border-bottom:1px solid #334155; vertical-align:top; }
   th { color:var(--muted); font-weight:600; }
-  .eq { font-size:1.25rem; background:var(--card); padding:16px 20px; border-radius:10px; }
-  pre { background:var(--card); padding:16px 20px; border-radius:10px; font-size:0.95rem; overflow:auto; }
-  .row { display:flex; gap:16px; flex-wrap:wrap; align-items:stretch; }
-  .row img { width:48%; min-width:280px; background:#111827; border-radius:8px; }
+  .eq { font-size:1.15rem; background:var(--card); padding:14px 18px; border-radius:10px; }
+  pre { background:var(--card); padding:14px 18px; border-radius:10px; font-size:0.9rem; overflow:auto; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:stretch; }
+  .row figure { width:48%; min-width:260px; margin:0; }
+  .row figure img { width:100%; background:#111827; border-radius:8px; display:block; }
+  figcaption { font-size:0.82rem; color:var(--muted); text-align:center; margin-top:4px; }
   .ok { color:var(--ok); font-weight:600; }
   .warn { color:var(--warn); }
   .kicker { text-transform:uppercase; letter-spacing:0.12em; font-size:0.75rem; color:var(--acc); margin-bottom:8px; }
@@ -55,31 +58,119 @@
     <tr><th>In git (review this)</th><th>Not in git</th></tr>
     <tr><td><code>oceanai/</code> workflow + GNN + writeback</td><td>19 GB Kang raw dump</td></tr>
     <tr><td>Tutorials 00–06</td><td><code>data/processed/</code> working tensors</td></tr>
-    <tr><td><strong>X vs ML vs Y snapshot</strong> (tables + maps)</td><td>57 MB <code>*.ml.nc</code> files</td></tr>
+    <tr><td><strong>X vs ML vs Y snapshot</strong> (T and S maps)</td><td>57 MB <code>*.ml.nc</code> files</td></tr>
     <tr><td>AI-ready pack <em>recipe</em> (~113 MB tar on Lustre)</td><td>Checkpoints / <code>.venv</code></td></tr>
   </table>
   <p><code>main</code> still has old notes and PPTX. Take over from <strong>this branch</strong>.</p>
 </section>
 
 <section>
-  <h2>The restart contract</h2>
-  <p class="eq">Copy year-55 restart. Overwrite only deep T and S (k = 46…60). Keep thickness, velocity, mesh, xtime.</p>
-  <p>60 month-aligned pairs, Δ = 550 yr. Train years 51–54 (48). Hold out 55 → 605 (12).</p>
-  <p>v1 does <span class="warn">not</span> predict SSH, velocity, or the upper ocean.</p>
+  <h2>Pilot workflow</h2>
+  <p class="sub">Case <code>v3.GMPAS-NYF_QU240</code> · <code>python -m oceanai.run_prototype --stage all</code></p>
+  <table>
+    <tr><th>Stage</th><th>What happens</th></tr>
+    <tr><td>prepare</td><td>60 pairs, deep mask k=46…60, cell graph, monthly NYF, scalers</td></tr>
+    <tr><td>qc</td><td>Restart OHC vs history AM (sanity)</td></tr>
+    <tr><td>baseline</td><td>Persistence: predict Y = X</td></tr>
+    <tr><td>truth-writeback</td><td>Put Y deep T/S into the X template — proves the writer</td></tr>
+    <tr><td>train</td><td>Residual GraphSAGE on 48 train graphs</td></tr>
+    <tr><td>infer</td><td>Write <code>rst.0055-01-01.ml.nc</code></td></tr>
+    <tr><td>snapshot</td><td><code>python -m oceanai.qc.snapshot</code> → X vs ML vs Y</td></tr>
+  </table>
+  <p>Other GPU cluster: copy the <strong>113 MB</strong> pack, not the 19 GB dump.</p>
 </section>
 
 <section>
-  <h2>Workflow</h2>
-<pre>Kang Dali/  raw restarts + remapped NYF
-  │
-  ├─ pair index, deep mask, mesh graph, monthly DATM
-  ├─ extract 60 pair npz
-  ├─ persistence baseline
-  ├─ tiny residual GNN
-  ├─ write_restart  →  *.ml.nc
-  └─ snapshot       →  X vs ML vs Y</pre>
-  <p>Frontier: <code>python -m oceanai.run_prototype --stage all</code><br/>
-  Other GPU cluster: copy the <strong>113 MB</strong> pack, not the 19 GB dump.</p>
+  <h2>Model setup</h2>
+  <table>
+    <tr><th>Item</th><th>Prototype choice</th></tr>
+    <tr><td>Mesh</td><td>QU240, 7153 cells, graph from <code>cellsOnCell</code> (41 018 edges)</td></tr>
+    <tr><td>Deep mask</td><td><code>refBottomDepth</code> &gt; 2000 m → k = 46…60 (15 levels)</td></tr>
+    <tr><td>Net</td><td>Cell-only residual GraphSAGE, 6 layers, hidden 64</td></tr>
+    <tr><td>Node input</td><td>15 T + 15 S + 7 static + 10 monthly NYF = <strong>47</strong></td></tr>
+    <tr><td>Target</td><td>Residual ΔT, ΔS on 15 deep levels (z-scored; add back to X)</td></tr>
+    <tr><td>Loss</td><td>Huber, weights <code>areaCell × layerThickness</code></td></tr>
+    <tr><td>Split</td><td>Train 48 (51–54→601–604) / holdout 12 (55→605)</td></tr>
+    <tr><td>Hardware</td><td>Login-node CPU for the published demo</td></tr>
+  </table>
+  <p class="muted">NYF cycles; one namelist. F and θ are encoded but not causal on this set.</p>
+</section>
+
+<section>
+  <h2>Predicted vs copied variables</h2>
+  <p class="sub">Restart names. History <code>activeTracers_*</code> are not used.</p>
+  <table>
+    <tr><th>Field</th><th>v1 role</th></tr>
+    <tr><td><code>temperature</code> k=46…60</td><td class="ok">Predict ΔT, add to X</td></tr>
+    <tr><td><code>salinity</code> k=46…60</td><td class="ok">Predict ΔS, add to X</td></tr>
+    <tr><td>T / S k=1…45 (shallow)</td><td>Copy X</td></tr>
+    <tr><td><code>layerThickness</code></td><td>Copy X</td></tr>
+    <tr><td><code>normalVelocity</code> + barotropic</td><td>Copy X</td></tr>
+    <tr><td>Mesh, <code>xtime</code></td><td>Copy X (early date)</td></tr>
+  </table>
+  <p>No <code>ssh</code> in the restart — do not invent it.</p>
+</section>
+
+<section>
+  <h2>Comparison table — holdout January</h2>
+  <p class="sub">0055-01 (X) vs ML restart vs 0605-01 (Y) · deep, area×thickness weighted</p>
+  <table>
+    <tr><th>Metric</th><th>X (persist)</th><th>ML</th><th>Y (truth)</th></tr>
+    <tr><td>Mean deep T (°C)</td><td>1.45</td><td><strong>0.10</strong></td><td>0.075</td></tr>
+    <tr><td>Deep T RMSE vs Y (°C)</td><td>1.43</td><td class="ok">0.39</td><td>—</td></tr>
+    <tr><td>Deep T bias this−Y (°C)</td><td>+1.37</td><td class="ok">+0.03</td><td>—</td></tr>
+    <tr><td>Mean deep S</td><td>34.736</td><td>34.726</td><td>34.714</td></tr>
+    <tr><td>Deep S RMSE vs Y</td><td>0.073</td><td>0.069</td><td>—</td></tr>
+    <tr><td>OHC 2000 m–bot rel. err. vs Y</td><td>0.43%</td><td class="ok">0.065%</td><td>—</td></tr>
+    <tr><td>Shallow T/S, h, velocity vs X</td><td>—</td><td class="ok">0 (copy)</td><td>—</td></tr>
+  </table>
+  <p class="muted">T skill is large-scale cooling. S 550-yr change is small — do not over-claim salinity.</p>
+</section>
+
+<section>
+  <h2>Maps — column-mean deep T</h2>
+  <p class="sub">Same color scale. Late ocean is colder; ML follows Y, not X.</p>
+  <div class="row">
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_T_X.svg" alt="X early deep T"/>
+      <figcaption>X · year 55</figcaption>
+    </figure>
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_T_Y.svg" alt="Y truth deep T"/>
+      <figcaption>Y · year 605 truth</figcaption>
+    </figure>
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_T_ML.svg" alt="ML deep T"/>
+      <figcaption>ML restart</figcaption>
+    </figure>
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_T_ML_minus_Y.svg" alt="ML minus Y T"/>
+      <figcaption>ML − Y</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section>
+  <h2>Maps — column-mean deep S</h2>
+  <p class="sub">Same layout as T. Global mean X 34.74 → Y 34.71; RMSE 0.073 → 0.069.</p>
+  <div class="row">
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_S_X.svg" alt="X early deep S"/>
+      <figcaption>X · year 55</figcaption>
+    </figure>
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_S_Y.svg" alt="Y truth deep S"/>
+      <figcaption>Y · year 605 truth</figcaption>
+    </figure>
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_S_ML.svg" alt="ML deep S"/>
+      <figcaption>ML restart</figcaption>
+    </figure>
+    <figure>
+      <img src="../prototype/snapshots/0055-01/map_S_ML_minus_Y.svg" alt="ML minus Y S"/>
+      <figcaption>ML − Y</figcaption>
+    </figure>
+  </div>
 </section>
 
 <section>
@@ -95,42 +186,6 @@
     <tr><td>06</td><td>Review the X / ML / Y snapshot</td></tr>
   </table>
   <p>Index: <code>tutorials/README.md</code></p>
-</section>
-
-<section>
-  <h2>Snapshot setup (holdout January)</h2>
-  <table>
-    <tr><th>Role</th><th>File</th><th>xtime</th></tr>
-    <tr><td>X early</td><td><code>rst.0055-01-01</code></td><td>0055-01-01</td></tr>
-    <tr><td>ML AI</td><td><code>rst.0055-01-01.ml.nc</code></td><td>0055-01-01 (template)</td></tr>
-    <tr><td>Y truth</td><td><code>rst.0605-01-01</code></td><td>0605-01-01</td></tr>
-  </table>
-  <p class="ok">Contract: max |ML − X| = 0 on shallow T/S, layerThickness, normalVelocity.</p>
-  <p>In git: <code>prototype/snapshots/0055-01/compare.md</code></p>
-</section>
-
-<section>
-  <h2>Deep T vs ground truth</h2>
-  <p class="sub">Area × thickness weighted, k = 46…60</p>
-  <table>
-    <tr><th></th><th>Mean T</th><th>RMSE vs Y</th><th>this − Y</th></tr>
-    <tr><td>X (persistence)</td><td>1.45 °C</td><td>1.43 °C</td><td>+1.37 °C too warm</td></tr>
-    <tr><td><strong>ML</strong></td><td>0.10 °C</td><td class="ok">0.39 °C</td><td>+0.03 °C</td></tr>
-    <tr><td>Y (simulation)</td><td>0.075 °C</td><td>—</td><td>—</td></tr>
-  </table>
-  <p>OHC 2000 m–bottom rel. error vs Y: X 0.43% → ML <span class="ok">0.065%</span>.</p>
-  <p>Salinity 550-yr change is small. Do not over-claim S skill.</p>
-</section>
-
-<section>
-  <h2>Maps — column-mean deep T</h2>
-  <p class="sub">Same color scale. Late ocean is colder; ML follows Y, not X.</p>
-  <div class="row">
-    <img src="../prototype/snapshots/0055-01/map_T_X.svg" alt="X early deep T"/>
-    <img src="../prototype/snapshots/0055-01/map_T_Y.svg" alt="Y truth deep T"/>
-    <img src="../prototype/snapshots/0055-01/map_T_ML.svg" alt="ML deep T"/>
-    <img src="../prototype/snapshots/0055-01/map_T_ML_minus_Y.svg" alt="ML minus Y"/>
-  </div>
 </section>
 
 <section>
@@ -151,6 +206,7 @@
 
 # Frontier
 python -m oceanai.run_prototype --stage all --smoke
+python -m oceanai.qc.snapshot
 
 # Other cluster
 export OCEANAI_PROCESSED=/path/to/QU240

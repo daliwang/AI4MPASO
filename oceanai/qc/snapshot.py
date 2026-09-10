@@ -105,7 +105,7 @@ def _level_means(t: np.ndarray, valid: np.ndarray, w: np.ndarray, ref: np.ndarra
     return rows
 
 
-def _svg_map(lon_deg, lat_deg, values, valid_col, path: Path, title: str, vmin, vmax) -> None:
+def _svg_map(lon_deg, lat_deg, values, valid_col, path: Path, title: str, vmin, vmax, unit: str = "°C") -> None:
     """Longitude–latitude scatter of column-mean deep T. No matplotlib required."""
     n = lon_deg.size
     w, h = 900, 460
@@ -135,7 +135,7 @@ def _svg_map(lon_deg, lat_deg, values, valid_col, path: Path, title: str, vmin, 
         '<rect width="100%" height="100%" fill="#111827"/>',
         f'<text x="{w/2}" y="22" fill="#e5e7eb" text-anchor="middle" font-size="16" font-family="sans-serif">{title}</text>',
         f'<text x="{pad}" y="{h-12}" fill="#9ca3af" font-size="11" font-family="sans-serif">lon 0–360</text>',
-        f'<text x="{w-pad}" y="{h-12}" fill="#9ca3af" font-size="11" font-family="sans-serif" text-anchor="end">{vmin:.2f} … {vmax:.2f} °C</text>',
+        f'<text x="{w-pad}" y="{h-12}" fill="#9ca3af" font-size="11" font-family="sans-serif" text-anchor="end">{vmin:.2f} … {vmax:.2f} {unit}</text>',
     ]
     order = np.argsort(lat_deg)
     for i in order:
@@ -281,6 +281,9 @@ def compare_restarts(
             "T_col_X": tcol(sx["temperature"]),
             "T_col_ML": tcol(sm["temperature"]),
             "T_col_Y": tcol(sy["temperature"]),
+            "S_col_X": tcol(sx["salinity"]),
+            "S_col_ML": tcol(sm["salinity"]),
+            "S_col_Y": tcol(sy["salinity"]),
         },
     }
     return pack
@@ -383,7 +386,9 @@ def write_markdown(pack: dict, out: Path) -> None:
     lines += [
         "## Maps",
         "",
-        "Column-mean deep T (valid columns): `map_T_X.svg`, `map_T_ML.svg`, `map_T_Y.svg`, `map_T_ML_minus_Y.svg`.",
+        "Column-mean deep T: `map_T_X.svg`, `map_T_ML.svg`, `map_T_Y.svg`, `map_T_ML_minus_Y.svg`.",
+        "",
+        "Column-mean deep S: `map_S_X.svg`, `map_S_ML.svg`, `map_S_Y.svg`, `map_S_ML_minus_Y.svg`.",
         "",
         "Regenerate: `python -m oceanai.qc.snapshot`.",
         "",
@@ -419,10 +424,23 @@ def snapshot_holdout_jan(
     dty = maps["T_col_ML"] - maps["T_col_Y"]
     amax = float(np.nanmax(np.abs(dty)))
     _svg_map(lon, lat, dty, ok, dest / "map_T_ML_minus_Y.svg", "Deep-column mean T — ML minus Y", -amax, amax)
+
+    smin = float(np.nanmin([maps["S_col_X"], maps["S_col_ML"], maps["S_col_Y"]]))
+    smax = float(np.nanmax([maps["S_col_X"], maps["S_col_ML"], maps["S_col_Y"]]))
+    _svg_map(lon, lat, maps["S_col_X"], ok, dest / "map_S_X.svg", "Deep-column mean S — X (year 55)", smin, smax, unit="PSU")
+    _svg_map(lon, lat, maps["S_col_ML"], ok, dest / "map_S_ML.svg", "Deep-column mean S — ML restart", smin, smax, unit="PSU")
+    _svg_map(lon, lat, maps["S_col_Y"], ok, dest / "map_S_Y.svg", "Deep-column mean S — Y (year 605 truth)", smin, smax, unit="PSU")
+    dsy = maps["S_col_ML"] - maps["S_col_Y"]
+    sabs = float(np.nanmax(np.abs(dsy)))
+    _svg_map(lon, lat, dsy, ok, dest / "map_S_ML_minus_Y.svg", "Deep-column mean S — ML minus Y", -sabs, sabs, unit="PSU")
     print(f"snapshot → {dest / 'compare.md'}")
     print(
         f"deep T RMSE vs Y:  ML={pack['vs_Y']['ML']['rmse_t']:.4f} C   "
         f"persistence={pack['vs_Y']['persistence_X']['rmse_t']:.4f} C"
+    )
+    print(
+        f"deep S RMSE vs Y:  ML={pack['vs_Y']['ML']['rmse_s']:.4f}   "
+        f"persistence={pack['vs_Y']['persistence_X']['rmse_s']:.4f}"
     )
     return dest
 
