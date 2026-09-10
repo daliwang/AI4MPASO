@@ -1,4 +1,4 @@
-# AI4MPSO Ocean Spinup — Variable Selection Docs
+# AI4MPASO Ocean Spinup — Variable Selection Docs
 
 Documentation of atmospheric forcing, MPAS-Ocean physics configs, and restart
 deep-ocean state variables selected for AI training.

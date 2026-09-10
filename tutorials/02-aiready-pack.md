@@ -58,8 +58,8 @@ rsync -aP data/aiready/QU240/ USER@OTHER:/path/QU240/
 tar -xzf OceanAISpinup-QU240-aiready-v1.0.0.tar.gz
 # creates ./QU240/
 
-git clone git@github.com:daliwang/AI4MPSO.git   # or copy the tree
-cd AI4MPSO
+git clone git@github.com:daliwang/AI4MPASO.git   # or copy the tree
+cd AI4MPASO
 git checkout handoff/prototype-e2e
 python3 -m venv .venv && source .venv/bin/activate
 pip install numpy torch          # add netCDF4 if you will write restarts

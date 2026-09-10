@@ -1,7 +1,7 @@
 # OceanAISpinup: Codebase Review and Development Plan
 
 **Date:** 2026-07-30 (amended 2026-08-27 with local sample inventory; **2026-09-10** Frontier DATM + restart/history re-inspection)  
-**Audience:** AI4MPSO / ImPACTS ocean spinup team (Dali, Alice, Hyun, Olawale)  
+**Audience:** AI4MPASO / ImPACTS ocean spinup team (Dali, Alice, Hyun, Olawale)  
 **Purpose:** Share findings from reviewing GraphCast and LandSim, and propose a concrete plan for an MPAS-Ocean early→equilibrium AI model that respects unstructured-mesh coupling.
 
 **Related local notes**
@@ -314,4 +314,4 @@ Use this list when improving the report with real file schemas:
 
 ---
 
-*Report generated from GraphCast + LandSim codebase review for AI4MPSO OceanAISpinup planning. §2.3 and §9 updated 2026-08-27 from the local sample headers; 2026-09-10: Frontier remapped DATM + restart/history confirmed (`OceanAISpinup_Start_Report.md`). Remaining blocker for diffusion: denser restart years, not schema.*
+*Report generated from GraphCast + LandSim codebase review for AI4MPASO OceanAISpinup planning. §2.3 and §9 updated 2026-08-27 from the local sample headers; 2026-09-10: Frontier remapped DATM + restart/history confirmed (`OceanAISpinup_Start_Report.md`). Remaining blocker for diffusion: denser restart years, not schema.*

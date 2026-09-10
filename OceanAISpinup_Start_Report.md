@@ -1,7 +1,7 @@
 # OceanAISpinup — Frontier Data Audit and How to Start
 
 **Date:** 2026-09-10  
-**Audience:** AI4MPSO / ImPACTS (Dali, Alice, Hyun, Olawale)  
+**Audience:** AI4MPASO / ImPACTS (Dali, Alice, Hyun, Olawale)  
 **Status:** Kang’s QU240 package on Frontier is **complete for a prototype restart operator**. It is **not** complete for Track C (conditional diffusion / flow).  
 **What Dali builds:** `OceanAISpinup_Prototype_Plan.md` (e2e prototype, then advise)  
 **Companion:** `OceanAISpinup_Implementation_Plan.md` (architecture, IO contract, work packages)  
