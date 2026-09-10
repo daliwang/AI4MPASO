@@ -1,6 +1,20 @@
 # Exclude GraphCast source/vendor tree
 graphcast/
 
+# Local prototype env and editor
+.venv/
+.vscode/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Processed tensors / ML restarts (keep docs)
+data/processed/
+
+# Portable AI-ready export (tensors + optional restart templates)
+data/aiready/
+
 # Large binary sample / archive data (keep docs, headers, namelists, selections)
 data/**/*.nc
 data/**/*.nc4

@@ -3,15 +3,18 @@
 Documentation of atmospheric forcing, MPAS-Ocean physics configs, and restart
 deep-ocean state variables selected for AI training.
 
-**Plans:** `OceanAISpinup_Development_Plan.md` (review) and
-`OceanAISpinup_Implementation_Plan.md` (architecture + work packages).
+**Plans:** `OceanAISpinup_Development_Plan.md` (review),
+`OceanAISpinup_Implementation_Plan.md` (architecture + work packages),
+and `OceanAISpinup_Prototype_Plan.md` (prototype e2e + handoff).
+Diffusion decision vs GraphCast/GenCast/LandSim: `../../OceanAISpinup_Diffusion_Evaluation.md`.
 
 | Document | Topic |
 |---|---|
 | [DATM_FORCING_VARIABLES.md](DATM_FORCING_VARIABLES.md) | DATM CORE2_NYF forcing: Tier-1 `u,v,t,slp` + GXGXS precip `prc` |
 | [MPASO_PHYSICS_CONFIG_INPUTS.md](MPASO_PHYSICS_CONFIG_INPUTS.md) | Selected `mpaso_in` physics / numerics namelist inputs |
 | [RESTART_DEEP_OCEAN_STATE.md](RESTART_DEEP_OCEAN_STATE.md) | Restart deep ocean (2000 m–bottom): input@~50yr, target@~600yr |
-| [FRONTIER_QU240_ARCHIVE.md](FRONTIER_QU240_ARCHIVE.md) | Hyun’s Frontier windows: monthly rst years 51–55 and 601–605 |
+| [FRONTIER_QU240_ARCHIVE.md](FRONTIER_QU240_ARCHIVE.md) | Hyun’s Frontier windows: monthly rst years 51–55 and 601–605; remapped DATM |
+| [AIREADY_DATASET.md](AIREADY_DATASET.md) | Portable tensor pack: extract, tar, and train on a second GPU cluster |
 
 ## Local sample (`../OceanSpin_sample/`)
 
@@ -39,6 +42,8 @@ NERSC source (headers): `/global/cfs/cdirs/m4259/hgkang/data_for_others/Dali_Oce
 Frontier payloads: `/lustre/orion/cli115/world-shared/hgkang/data4others/Dali/` — see [FRONTIER_QU240_ARCHIVE.md](FRONTIER_QU240_ARCHIVE.md).
 
 ## Selection lists (machine-readable)
+
+Canonical copies (do not duplicate):
 
 | File | Contents |
 |---|---|

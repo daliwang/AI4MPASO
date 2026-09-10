@@ -1,15 +1,16 @@
 # OceanAISpinup: Codebase Review and Development Plan
 
-**Date:** 2026-07-30 (amended 2026-08-27 with local sample inventory)  
+**Date:** 2026-07-30 (amended 2026-08-27 with local sample inventory; **2026-09-10** Frontier DATM + restart/history re-inspection)  
 **Audience:** AI4MPAS / ImPACTS ocean spinup team (Dali, Alice, Hyun, Olawale)  
 **Purpose:** Share findings from reviewing GraphCast and LandSim, and propose a concrete plan for an MPAS-Ocean early→equilibrium AI model that respects unstructured-mesh coupling.
 
 **Related local notes**
 
-- `OceanAISpinup_Implementation_Plan.md` — detailed architecture, pair factory, and WP list (use this for implementation)
-- `background.txt` — team task split and sample data pointers (2026-06-22)
-- `selected_variables.txt` — namelist / physics-config list (regime conditioning; locked copy: `data/OceanSpin_sample/mpaso_variables`)
-- `MPAS_Ocean_ML_Init_Report.md` — earlier conceptual GraphCast + LandSim framing
+- `OceanAISpinup_Prototype_Plan.md` — prototype e2e; Dali builds then advises (**use this to begin coding**)
+- `OceanAISpinup_Start_Report.md` — 2026-09-10 Frontier audit and data freeze
+- `OceanAISpinup_Diffusion_Evaluation.md` — GraphCast / GenCast / LandSim re-review of the diffusion decision
+- `OceanAISpinup_Implementation_Plan.md` — detailed architecture, pair factory, and WP list
+- `data/docs/AIREADY_DATASET.md` — portable tensor pack for a second GPU cluster
 - Local sample (headers / namelists): `data/OceanSpin_sample/` — see §2.3
 - Sample data (NERSC): `/global/cfs/cdirs/m4259/hgkang/data_for_others/Dali_OceanSpinup_sample`
 - MPAS-Analysis example: [GMPAS-NYF_QU240](https://portal.nersc.gov/project/e3sm/hgkang/ImPACTS/AI_spinup/v3.GMPAS-NYF_QU240/www/)
@@ -18,9 +19,9 @@
 
 | Codebase | Path | Role in this plan |
 |----------|------|-------------------|
-| GraphCast / GenCast | `/Users/7xw/Documents/Work/AI4MPASO/graphcast` (local copy; not tracked in this repo) | Typed mesh GNN / sparse transformer operators |
-| LandSim | `/Users/7xw/Documents/Work/LandSim` | Early→equilibrium pairing, multi-stream fusion, restart writeback |
-| MPAS-Ocean guide | `MPAS_Ocean_Users_Guide_E3SM_V3.0.0.pdf` | Restart/history schema authority |
+| GraphCast / GenCast | local copy; not tracked (`graphcast/` gitignored) | Typed mesh GNN / sparse transformer operators |
+| LandSim | not in this repo | Early→equilibrium pairing, multi-stream fusion, restart writeback |
+| MPAS-Ocean guide | E3SM v3 user guide (not vendored on this branch) | Restart/history schema; headers in `data/OceanSpin_sample/` |
 
 ---
 
@@ -36,7 +37,7 @@
 2. **Reuse GraphCast’s mesh operator stack:** `TypedGraph` + `DeepTypedGraphNet` encode–process–decode, geometric edge features, residual prediction, optional autoregressive / multi-time training.
 3. **Replace** GraphCast’s lat–lon ↔ icosahedral bridges and LandSim’s cell-independent Transformer with a **native MPAS cell/edge(/vertex) graph processor** and **`areaCell`-weighted** losses.
 
-**Immediate clarification.** `selected_variables.txt` / `mpaso_variables` list **namelist physics/config knobs** (GM, KPP, bottom drag, EOS, remapping, etc.). Those should condition the model as a **simulation regime**, but they are **not** the prognostic restart fields the AI should predict. Prognostic names are now locked against the sample restart header (§2.3): `temperature`, `salinity`, `layerThickness`, `normalVelocity` on deep levels k=46…60.
+**Immediate clarification.** `data/OceanSpin_sample/mpaso_variables` lists **namelist physics/config knobs** (GM, KPP, bottom drag, EOS, remapping, etc.). Those should condition the model as a **simulation regime**, but they are **not** the prognostic restart fields the AI should predict. Prognostic names are now locked against the sample restart header (§2.3): `temperature`, `salinity`, `layerThickness`, `normalVelocity` on deep levels k=46…60.
 
 ---
 
@@ -278,10 +279,10 @@ Open: full restart year inventory on NERSC; payload `.nc` files on the workdir.
 
 | Person | Next actions |
 |--------|--------------|
-| **Alice** | Confirm OHC / drift thresholds for “near eq”; review deep-mask and history QC list |
-| **Hyun** | Confirm whether years 56–600 (or 20–50) will be exported; MPAS-Analysis / plot utilities |
-| **Olawale** | Port LandSim dataGEN pairing to `Ocean_dataGEN` using locked IO lists in `data/OceanSpin_sample/` |
-| **Dali** | WP1 graph builder from QU240 restart; Track A MVP; keep implementation plan current |
+| **Dali** | Prototype e2e (`OceanAISpinup_Prototype_Plan.md`); then advisor |
+| **Alice** | After handoff: OHC QC, holdout maps, near-eq thresholds |
+| **Hyun** | Extra restart years if any; MPAS-Analysis / N-day forward after an ML restart exists |
+| **Olawale** | After handoff: LandSim-style dataGEN / scaler / training hardening |
 
 ---
 
@@ -294,6 +295,7 @@ Use this list when improving the report with real file schemas:
 - [x] Confirm which fields are required for a usable restart vs optional (overwrite T/S/`layerThickness` only in v1; keep auxiliaries from template; no standalone `ssh`)
 - [x] Record mesh name, vertical grid, and key configs (QU240, z-star 60, `mpaso_in`; early vs late share one namelist in this case)
 - [x] Estimate number of usable (early, late) pairs: **60 month-aligned 550-year pairs** on Frontier (years 51–55 × 601–605); plus short-Δ inside each window
+- [x] Remapped DATM on oQU240 cells (`ncol=7153`, identity join); GISS daily; NCEP 6-hourly; precip monthly (`OceanAISpinup_Start_Report.md`)
 - [x] Prognostic IO list: `data/OceanSpin_sample/restart_variables` + restart header
 - [x] Masking: `maxLevelCell` / `bottomDepth>2000` / fill value; no `cellMask` array in restart
 - [ ] Identify baseline RMSE of persistence on deep T/S (and OHC) with `areaCell` weights — run on **0051-01-01 → 0601-01-01**
@@ -302,17 +304,14 @@ Use this list when improving the report with real file schemas:
 
 ## 10. References inside this repo
 
-- `MPAS_Ocean_ML_Init_Report.md` — prior high-level concept and slide outline
-- `MPAS_Ocean_ML_Init_Deck.pptx` — companion slides
-- `graphcast_gnn_mesh_schematic.png` / `GraphCast_gridhandling.png` — mesh I/O figures
-- `generate_graphcast_schematic.py` — schematic regenerator
-- `MPAS_Ocean_Users_Guide_E3SM_V3.0.0.pdf` — authoritative MPAS-Ocean I/O
-- `Copy of Running MPAS-Ocean on Perlmutter and Frontier.txt` — HPC workflow notes
-- `background.txt`, `selected_variables.txt` — team notes and current config list
-- `data/docs/` — DATM, `mpaso_in`, restart deep-ocean selection
+- `README.md` — handoff front door
+- `prototype/README.md` — how to run the pilot
+- `data/docs/` — DATM, `mpaso_in`, restart deep-ocean selection, AI-ready pack
 - `data/OceanSpin_sample/` — GMPAS-NYF_QU240 headers, namelists, stream XML
+- `OceanAISpinup_Start_Report.md` — 2026-09-10 Frontier data audit and how to start
 - `OceanAISpinup_Implementation_Plan.md` — architecture, pair factory, work packages
+- `docs/HANDOFF.md` — what this branch dropped vs `main`
 
 ---
 
-*Report generated from GraphCast + LandSim codebase review for AI4MPAS OceanAISpinup planning. §2.3 and §9 updated 2026-08-27 from the local sample headers. Remaining blocker: full restart year inventory + NetCDF payloads.*
+*Report generated from GraphCast + LandSim codebase review for AI4MPAS OceanAISpinup planning. §2.3 and §9 updated 2026-08-27 from the local sample headers; 2026-09-10: Frontier remapped DATM + restart/history confirmed (`OceanAISpinup_Start_Report.md`). Remaining blocker for diffusion: denser restart years, not schema.*

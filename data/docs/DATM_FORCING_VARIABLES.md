@@ -113,7 +113,9 @@ Same file as Tier-1 (`nyf.ncep.T62.050923.nc`).
 ## Tier-3 — GISS radiation
 
 **File:** `datm_NYF/nyf.giss.T62.051007.nc`  
-**Stream:** `datm.streams.txt.CORE2_NYF.GISS`
+**Remapped (Frontier):** `remapped_datm/QU240-NYF/remapped/nyf.giss.oQU240.051007.nc`  
+**Stream:** `datm.streams.txt.CORE2_NYF.GISS`  
+**Time:** **365 daily** means (noleap, noon each day). Variable attributes still say `av-1mo`; the title and `time=365` are authoritative.
 
 | File variable | DATM name | Role |
 |---|---|---|
@@ -175,7 +177,7 @@ targets or validation, **not** as DATM substitutes.
 
 - DATM remaps T62 → ocean mesh with bilinear mapping; `u:v` are treated as a vector pair.
 - NYF is a climatological normal year (year=1, noleap), cycled — suitable for spinup, not interannual weather.
-- Temporal mix: NCEP is 6-hourly; GXGXS precip is monthly; ocean history is monthly — align aggregation when combining features.
+- Temporal mix: NCEP is 6-hourly; GXGXS precip is monthly; GISS radiation is **daily**; ocean history is monthly — align aggregation when combining features. On Frontier, use Hyun’s remapped oQU240 files (`ncol=7153`); identity-join to restart cells.
 - Stream XML originally points at E3SM inputdata (`atm/datm7/NYF`); local copies live under `datm_NYF/`.
 
 ## Sources

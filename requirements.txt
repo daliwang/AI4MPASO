@@ -1,0 +1,7 @@
+# Pilot workflow (CPU). Create with:
+#   module load cray-python/3.11.7
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+netCDF4>=1.6
+numpy>=1.24
+torch>=2.2
