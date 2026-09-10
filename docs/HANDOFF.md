@@ -9,12 +9,13 @@ slide binaries if someone needs them.
 ## What to read
 
 1. [`docs/handoff_briefing.html`](handoff_briefing.html) — short live intro (← → keys)
-2. Repo [`README.md`](../README.md)
-3. [`tutorials/README.md`](../tutorials/README.md) — on-ramp
-4. [`prototype/snapshots/0055-01/compare.md`](../prototype/snapshots/0055-01/compare.md) — X / ML / Y
-5. [`prototype/README.md`](../prototype/README.md) — run + metrics
-6. [`data/docs/AIREADY_DATASET.md`](../data/docs/AIREADY_DATASET.md) — off-Frontier pack
-7. [`OceanAISpinup_Prototype_Plan.md`](../OceanAISpinup_Prototype_Plan.md) — roles
+2. [`docs/ARCHITECTURE_AND_DESIGN.md`](ARCHITECTURE_AND_DESIGN.md) — architecture handout for talks (GraphCast/LandSim, data, variables, per-level tables)
+3. Repo [`README.md`](../README.md)
+4. [`tutorials/README.md`](../tutorials/README.md) — on-ramp
+5. [`prototype/snapshots/0055-01/compare.md`](../prototype/snapshots/0055-01/compare.md) — X / ML / Y
+6. [`prototype/README.md`](../prototype/README.md) — run + metrics
+7. [`data/docs/AIREADY_DATASET.md`](../data/docs/AIREADY_DATASET.md) — off-Frontier pack
+8. [`OceanAISpinup_Prototype_Plan.md`](../OceanAISpinup_Prototype_Plan.md) — roles
 
 ## What is in git vs not
 

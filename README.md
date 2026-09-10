@@ -12,11 +12,12 @@ are not in git.
 | Order | Doc | Why |
 |---|---|---|
 | 0 | [`docs/handoff_briefing.html`](docs/handoff_briefing.html) | Short team intro (branch, workflow, tutorials, snapshot) |
-| 1 | [`tutorials/README.md`](tutorials/README.md) | On-ramp: concepts + hands-on walkthroughs |
-| 2 | [`prototype/snapshots/0055-01/compare.md`](prototype/snapshots/0055-01/compare.md) | X vs ML vs Y restart snapshot (in git) |
-| 3 | [`prototype/README.md`](prototype/README.md) | Commands + holdout metrics |
-| 4 | [`data/docs/AIREADY_DATASET.md`](data/docs/AIREADY_DATASET.md) | Portable pack for a second GPU cluster |
-| 5 | [`OceanAISpinup_Prototype_Plan.md`](OceanAISpinup_Prototype_Plan.md) | What shipped, roles after handoff |
+| 1 | [`docs/ARCHITECTURE_AND_DESIGN.md`](docs/ARCHITECTURE_AND_DESIGN.md) | **Presentation handout:** architecture, GraphCast/LandSim lineage, data prep, predicted vars, per-level results |
+| 2 | [`tutorials/README.md`](tutorials/README.md) | On-ramp: concepts + hands-on walkthroughs |
+| 3 | [`prototype/snapshots/0055-01/compare.md`](prototype/snapshots/0055-01/compare.md) | X vs ML vs Y restart snapshot (in git) |
+| 4 | [`prototype/README.md`](prototype/README.md) | Commands + holdout metrics |
+| 5 | [`data/docs/AIREADY_DATASET.md`](data/docs/AIREADY_DATASET.md) | Portable pack for a second GPU cluster |
+| 6 | [`OceanAISpinup_Prototype_Plan.md`](OceanAISpinup_Prototype_Plan.md) | What shipped, roles after handoff |
 
 Architecture and data freeze (read when you need the *why*):
 
