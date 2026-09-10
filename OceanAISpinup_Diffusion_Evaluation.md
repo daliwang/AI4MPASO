@@ -1,7 +1,7 @@
 # Evaluation: Does a diffusion model make sense for OceanAISpinup?
 
 **Date:** 2026-09-10  
-**Audience:** Dali / AI4MPAS review  
+**Audience:** Dali / AI4MPSO review  
 **Question:** Given GraphCast, GenCast, LandSim, and Kang’s QU240 dump, is the current diffusion decision sound?  
 **Decision under review** (as documented in `OceanAISpinup_Implementation_Plan.md` and `OceanAISpinup_Start_Report.md`):
 

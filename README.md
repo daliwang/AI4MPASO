@@ -1,4 +1,4 @@
-# AI4MPAS — OceanAISpinup
+# AI4MPSO — OceanAISpinup
 
 Learn an **early → equilibrium MPAS-Ocean restart operator** on the QU240 mesh:
 map a year-~50 deep T/S restart to year ~600, write it back into MPAS-Ocean, and
@@ -53,7 +53,7 @@ On the destination cluster:
 ```bash
 tar -xzf OceanAISpinup-QU240-aiready-v1.0.0.tar.gz
 export OCEANAI_PROCESSED=/absolute/path/to/QU240
-export PYTHONPATH=/path/to/AI4MPAS
+export PYTHONPATH=/path/to/AI4MPSO
 python -m oceanai.data.pack_aiready --verify-only
 ```
 

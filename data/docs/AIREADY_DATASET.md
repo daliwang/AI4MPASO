@@ -92,7 +92,7 @@ Split (locked): train `0051–0054` → `0601–0604` (48); holdout `0055` → `
 tar -xzf OceanAISpinup-QU240-aiready-v1.0.0.tar.gz
 # → QU240/
 
-git clone <this-repo> AI4MPAS && cd AI4MPAS
+git clone <this-repo> AI4MPSO && cd AI4MPSO
 python3 -m venv .venv && source .venv/bin/activate
 pip install numpy torch   # netCDF4 only if you will write restarts
 

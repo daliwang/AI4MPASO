@@ -17,7 +17,7 @@ Not a weather model. Not GenCast.
 
 # What this branch is
 
-GitHub: `daliwang/AI4MPAS` · branch **`handoff/prototype-e2e`**
+GitHub: `daliwang/AI4MPSO` · branch **`handoff/prototype-e2e`**
 
 | In git | Not in git |
 |---|---|

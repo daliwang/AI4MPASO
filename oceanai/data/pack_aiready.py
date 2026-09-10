@@ -105,7 +105,7 @@ Each `pairs/YYYY-MM.npz` holds deep `t_x,s_x,h_x` (year ~50) and
 ```bash
 # 1. copy this tree (or the .tar.gz) and the git repo
 export OCEANAI_PROCESSED=/path/to/QU240
-cd /path/to/AI4MPAS
+cd /path/to/AI4MPSO
 python - <<'PY'
 from oceanai.data.pair_index import load_pair_index
 from oceanai.data.extract import load_pair
