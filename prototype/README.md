@@ -73,7 +73,7 @@ The temperature skill is mostly a **large-scale cooling** that 48 pairs can fit.
 
 See `OceanAISpinup_Prototype_Plan.md`. Olawale: dataGEN/training. Alice: OHC maps. Hyun: forward test. Dali advises; do **not** train GenCast on these 60 pairs.
 
-Branch: `handoff/prototype-e2e`. Tutorials go in `tutorials/` (index only until filled in).
+Branch: `handoff/prototype-e2e`. On-ramp: [`tutorials/README.md`](../tutorials/README.md).
 
 ## Off-Frontier: AI-ready pack
 

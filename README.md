@@ -11,10 +11,10 @@ are not in git.
 
 | Order | Doc | Why |
 |---|---|---|
-| 1 | [`prototype/README.md`](prototype/README.md) | How to run the e2e pilot; metrics from 2026-09-10 |
-| 2 | [`data/docs/AIREADY_DATASET.md`](data/docs/AIREADY_DATASET.md) | Portable pack for a second GPU cluster (~113 MB, not the 19 GB dump) |
-| 3 | [`OceanAISpinup_Prototype_Plan.md`](OceanAISpinup_Prototype_Plan.md) | What shipped, roles after handoff |
-| 4 | [`tutorials/README.md`](tutorials/README.md) | Tutorials (to be added on this branch) |
+| 1 | [`tutorials/README.md`](tutorials/README.md) | On-ramp: concepts + five hands-on walkthroughs |
+| 2 | [`prototype/README.md`](prototype/README.md) | Commands + holdout metrics from 2026-09-10 |
+| 3 | [`data/docs/AIREADY_DATASET.md`](data/docs/AIREADY_DATASET.md) | Portable pack for a second GPU cluster |
+| 4 | [`OceanAISpinup_Prototype_Plan.md`](OceanAISpinup_Prototype_Plan.md) | What shipped, roles after handoff |
 
 Architecture and data freeze (read when you need the *why*):
 
@@ -63,7 +63,7 @@ oceanai/                 # pair factory, GNN, writeback, packager
 prototype/README.md      # commands + holdout table
 data/docs/               # variable selection + AI-ready card
 data/OceanSpin_sample/   # headers, namelists (no NetCDF)
-tutorials/               # handoff tutorials (add here)
+tutorials/               # 00 concepts + 01–05 hands-on
 ```
 
 Gitignored: `.venv/`, `data/processed/`, `data/aiready/` (the tensor pack), `*.nc`.

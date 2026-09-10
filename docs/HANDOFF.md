@@ -9,10 +9,10 @@ slide binaries if someone needs them.
 ## What to read
 
 1. Repo [`README.md`](../README.md)
-2. [`prototype/README.md`](../prototype/README.md) — run + metrics
-3. [`data/docs/AIREADY_DATASET.md`](../data/docs/AIREADY_DATASET.md) — off-Frontier pack
-4. [`OceanAISpinup_Prototype_Plan.md`](../OceanAISpinup_Prototype_Plan.md) — roles
-5. [`tutorials/README.md`](../tutorials/README.md) — add walkthroughs here
+2. [`tutorials/README.md`](../tutorials/README.md) — on-ramp
+3. [`prototype/README.md`](../prototype/README.md) — run + metrics
+4. [`data/docs/AIREADY_DATASET.md`](../data/docs/AIREADY_DATASET.md) — off-Frontier pack
+5. [`OceanAISpinup_Prototype_Plan.md`](../OceanAISpinup_Prototype_Plan.md) — roles
 
 ## What is in git vs not
 
