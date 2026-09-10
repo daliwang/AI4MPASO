@@ -110,7 +110,8 @@ $ncdump -v xtime data/processed/QU240/restarts_ml/rst.0055-01-01.ml.nc | tail
 # xtime = "0055-01-01_00:00:00"   ← template (X) time, by design
 ```
 
-Published smoke/full metrics: [`prototype/README.md`](../prototype/README.md).
+Published smoke/full metrics: [`prototype/README.md`](../prototype/README.md).  
+Three-way restart snapshot (X / ML / Y): [`prototype/snapshots/0055-01/compare.md`](../prototype/snapshots/0055-01/compare.md).
 
 ## Common failures
 

@@ -62,6 +62,8 @@ The temperature skill is mostly a **large-scale cooling** that 48 pairs can fit.
 
 `ncdump -v xtime data/processed/QU240/restarts_ml/rst.0055-01-01.ml.nc` → `0055-01-01_00:00:00` (template time).
 
+**X vs ML vs Y snapshot** (holdout January): [`snapshots/0055-01/compare.md`](snapshots/0055-01/compare.md) — contract checks, deep T/S tables, OHC, per-level means, example columns, and SVG maps. Regenerate with `python -m oceanai.qc.snapshot`.
+
 ## Honest limitations
 
 - One NYF case, one mesh, 48 train graphs — easy to overfit; holdout is the same seasonal cycle one year later.

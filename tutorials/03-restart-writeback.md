@@ -99,4 +99,5 @@ Code: `oceanai/io/write_restart.py` (`write_deep_ts`). Invalid mask points keep 
 ## Next
 
 Hyun: [05 — short forward from the ML restart](05-forward-mpas.md).  
+Review the three-way snapshot: [06](06-restart-snapshot.md).  
 Alice: [04 — OHC of that file vs Y vs persistence](04-metrics-and-ohc.md).
